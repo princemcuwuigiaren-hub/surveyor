@@ -1,4 +1,4 @@
-const CACHE_NAME = 'surveyor-v1';
+const CACHE_NAME = 'surveyor-v2';
 const ASSETS = ['./', './surveyor.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
