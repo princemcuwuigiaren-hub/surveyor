@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Surveyor</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#121314">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Surveyor">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#121314; --surface:#1A1C1E; --border:#2B2E31;
+    --ink:#EDEDED; --ink-muted:#8C9094;
+    --amber:#D9A441; --amber-dim:#8A6E33;
+    --support:#6FA184; --oppose:#C06A62;
+  }
+  [data-theme="light"]{
+    --bg:#F7F5F1; --surface:#FFFFFF; --border:#DEDAD2;
+    --ink:#1C1C1C; --ink-muted:#6B6660;
+    --amber:#B4812A; --amber-dim:#D8C29A;
+    --support:#3F7C5C; --oppose:#A8443B;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; padding-bottom:40px; }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+  h1,h2{ font-family:'Fraunces',serif; font-weight:600; margin:0; }
+
+  /* Top bar */
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 18px; border-bottom:1px solid var(--border);
+    position:sticky; top:0; background:var(--bg); z-index:20;
+  }
+  header h1{ font-size:19px; }
+  header .back-btn{ font-size:20px; background:none; border:none; color:var(--ink); cursor:pointer; padding:4px 8px; visibility:hidden; }
+  header .back-btn.show{ visibility:visible; }
+  header .menu-btn{ background:none; border:none; color:var(--ink); cursor:pointer; font-size:22px; padding:4px 8px; line-height:1; }
+
+  /* Slide-in menu */
+  .menu-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:30;
+    display:none;
+  }
+  .menu-overlay.show{ display:block; }
+  .menu-panel{
+    position:fixed; top:0; right:0; height:100%; width:78%; max-width:280px;
+    background:var(--surface); border-left:1px solid var(--border);
+    padding:18px; transform:translateX(100%); transition:transform .2s ease;
+  }
+  .menu-overlay.show .menu-panel{ transform:translateX(0); }
+  .menu-panel button{
+    display:block; width:100%; text-align:left; background:none; border:none;
+    color:var(--ink); font-size:15px; padding:13px 4px; border-bottom:1px solid var(--border);
+    cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .menu-panel button.active{ color:var(--amber); }
+
+  main{ padding:16px; max-width:640px; margin:0 auto; }
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  /* Wizard */
+  .step-indicator{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.06em;
+    color:var(--ink-muted); text-transform:uppercase; margin-bottom:14px;
+  }
+  .step-indicator .step-name{ color:var(--amber); }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:14px; }
+  .card h2{ font-size:16px; margin-bottom:14px; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+
+  label{ display:block; font-size:12px; color:var(--ink-muted); margin-bottom:4px; }
+  input, select{
+    width:100%; background:var(--bg); border:1px solid var(--border); color:var(--ink);
+    padding:10px; border-radius:6px; font-size:14px; margin-bottom:12px; font-family:'Inter',sans-serif;
+  }
+  input:focus, select:focus{ outline:none; border-color:var(--amber); }
+
+  .subhead{ font-size:12px; color:var(--ink-muted); margin:16px 0 8px; }
+  .subhead:first-child{ margin-top:0; }
+
+  .chip-row{ display:flex; gap:8px; overflow-x:auto; margin-bottom:12px; padding-bottom:2px; }
+  .chip-row:empty{ display:none; margin:0; }
+  .chip{
+    flex-shrink:0; background:var(--bg); border:1px solid var(--border); color:var(--ink-muted);
+    font-size:12px; padding:8px 12px; border-radius:16px; cursor:pointer; white-space:nowrap;
+    font-family:'Inter',sans-serif;
+  }
+  .chip:active{ border-color:var(--amber); color:var(--amber); }
+
+  .filter-row{ display:flex; gap:8px; }
+  .filter-chip{
+    flex:1; background:var(--bg); border:1px solid var(--border); color:var(--ink-muted);
+    font-size:12px; padding:9px 10px; border-radius:6px; cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .filter-chip.active{ border-color:var(--amber); color:var(--amber); background:rgba(217,164,65,0.08); }
+
+  .checkbox-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .checkbox-row input{ width:auto; margin:0; }
+  .checkbox-row label{ margin:0; color:var(--ink); font-size:13px; }
+
+  .wizard-nav{ display:flex; gap:10px; }
+  button.primary{
+    background:var(--amber); color:#1A1508; border:none; font-weight:600;
+    padding:13px 18px; border-radius:6px; cursor:pointer; font-size:14px; flex:1;
+  }
+  button.secondary{
+    background:none; border:1px solid var(--border); color:var(--ink);
+    padding:13px 18px; border-radius:6px; cursor:pointer; font-size:14px;
+  }
+  button.danger{ border-color:var(--oppose); color:var(--oppose); }
+  button.small{ padding:7px 12px; font-size:12px; }
+  button.full{ width:100%; }
+
+  .badge{
+    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600;
+    padding:4px 10px; border-radius:4px; letter-spacing:0.03em;
+  }
+  .badge.high{ background:rgba(217,164,65,0.15); color:var(--amber); }
+  .badge.medium{ background:rgba(140,144,148,0.15); color:var(--ink-muted); }
+  .badge.low{ background:rgba(192,106,98,0.15); color:var(--oppose); }
+  .badge.observed{ background:rgba(140,144,148,0.15); color:var(--ink-muted); }
+  .badge.testing{ background:rgba(111,161,132,0.12); color:var(--support); }
+  .badge.provisional{ background:rgba(217,164,65,0.15); color:var(--amber); }
+  .badge.validated{ background:rgba(111,161,132,0.2); color:var(--support); }
+
+  .result-market{ font-size:24px; font-weight:600; margin:10px 0 2px; }
+  .result-sub{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-muted); }
+  .why{ font-size:13px; color:var(--ink-muted); margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+
+  details{ margin-top:12px; }
+  summary{ cursor:pointer; font-size:12px; color:var(--amber); }
+  .evidence-list{ list-style:none; padding:0; margin:10px 0 0; }
+  .evidence-list li{ font-size:13px; padding:6px 10px; border-radius:5px; margin-bottom:4px; }
+  .evidence-list li.support{ background:rgba(111,161,132,0.1); color:var(--support); }
+  .evidence-list li.oppose{ background:rgba(192,106,98,0.1); color:var(--oppose); }
+
+  .entry-row{ display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border); gap:10px; }
+  .entry-row:last-child{ border-bottom:none; }
+  .entry-idx{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber-dim); min-width:34px; }
+  .entry-main .fixture{ font-size:14px; }
+  .entry-main .meta{ font-size:11px; color:var(--ink-muted); margin-top:2px; }
+
+  .empty{ text-align:center; padding:36px 16px; color:var(--ink-muted); font-size:13px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th,td{ text-align:left; padding:8px 4px; border-bottom:1px solid var(--border); }
+  th{ color:var(--ink-muted); font-size:11px; text-transform:uppercase; font-weight:500; }
+  td.num{ font-family:'JetBrains Mono',monospace; text-align:right; }
+
+  .row-between{ display:flex; justify-content:space-between; align-items:center; }
+  .toggle-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+  .toggle-row:last-child{ border-bottom:none; }
+  .toggle{ position:relative; width:42px; height:24px; background:var(--border); border-radius:12px; cursor:pointer; }
+  .toggle.on{ background:var(--amber); }
+  .toggle .knob{ position:absolute; top:2px; left:2px; width:20px; height:20px; background:var(--surface); border-radius:50%; transition:left .15s; }
+  .toggle.on .knob{ left:20px; }
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--amber); color:#1A1508; padding:10px 18px; border-radius:6px;
+    font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s; z-index:100;
+    max-width:85vw; text-align:center;
+  }
+  .toast.show{ opacity:1; }
+
+  .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:50; align-items:center; justify-content:center; padding:20px; }
+  .modal-overlay.show{ display:flex; }
+  .modal{ background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; max-width:380px; width:100%; }
+
+  .badge.won{ background:rgba(111,161,132,0.15); color:var(--support); }
+  .badge.lost{ background:rgba(192,106,98,0.15); color:var(--oppose); }
+  .badge.pending{ background:rgba(140,144,148,0.15); color:var(--ink-muted); }
+
+  .log-card{ background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:18px; margin-bottom:12px; cursor:pointer; }
+  .log-card-fixture{ font-size:17px; font-weight:600; margin-top:10px; }
+  .log-card-meta{ font-size:12px; color:var(--ink-muted); margin-top:4px; }
+
+  .detail-modal .modal{ max-width:440px; max-height:82vh; overflow-y:auto; text-align:left; }
+</style>
+</head>
+<body>
+
+<header>
+  <button class="back-btn" id="back-btn" onclick="wizardBack()">←</button>
+  <h1 id="header-title">Surveyor</h1>
+  <button class="menu-btn" onclick="toggleMenu(true)">☰</button>
+</header>
+
+<div class="menu-overlay" id="menu-overlay" onclick="if(event.target===this) toggleMenu(false)">
+  <div class="menu-panel">
+    <button data-screen="entry" onclick="goScreen('entry')">New Entry</button>
+    <button data-screen="log" onclick="goScreen('log')">Echo Log</button>
+    <button data-screen="reports" onclick="goScreen('reports')">Reports</button>
+    <button data-screen="patterns" onclick="goScreen('patterns')">Patterns</button>
+    <button data-screen="settings" onclick="goScreen('settings')">Settings</button>
+  </div>
+</div>
+
+<main>
+
+  <!-- ===== ENTRY WIZARD ===== -->
+  <section class="screen active" id="screen-entry">
+
+    <div class="step" data-step="0">
+      <div class="step-indicator">Step 1 / 5 — <span class="step-name">Match</span></div>
+      <div class="card">
+        <div class="chip-row" id="recent-league-chips"></div>
+        <div class="grid2">
+          <div><label>Country</label><input id="f-country" list="country-list" autocomplete="off"><datalist id="country-list"></datalist></div>
+          <div><label>League</label><input id="f-league" list="league-list" autocomplete="off"><datalist id="league-list"></datalist></div>
+        </div>
+        <label>Date</label>
+        <div class="row-between" style="gap:8px;margin-bottom:10px;">
+          <button type="button" class="secondary small" style="flex:1;" onclick="setDateShortcut(0)">Today</button>
+          <button type="button" class="secondary small" style="flex:1;" onclick="setDateShortcut(1)">Tomorrow</button>
+        </div>
+        <input id="f-date" type="date">
+        <label>Kickoff time (optional)</label>
+        <input id="f-time" type="time">
+        <div class="grid2">
+          <div><label>Home Team</label><input id="f-home" list="home-team-list" autocomplete="off"><datalist id="home-team-list"></datalist></div>
+          <div><label>Away Team</label><input id="f-away" list="away-team-list" autocomplete="off"><datalist id="away-team-list"></datalist></div>
+        </div>
+        <div class="checkbox-row"><input type="checkbox" id="f-neutral"><label for="f-neutral">Neutral venue</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="f-cup"><label for="f-cup">Cup / knockout</label></div>
+      </div>
+    </div>
+
+    <div class="step" data-step="1">
+      <div class="step-indicator">Step 2 / 5 — <span class="step-name">Goals</span></div>
+      <div class="card">
+        <div class="grid2">
+          <div><label>Home Scored (avg)</label><input id="o-hgs" type="number" step="0.01"></div>
+          <div><label>Home Conceded (avg)</label><input id="o-hgc" type="number" step="0.01"></div>
+          <div><label>Away Scored (avg)</label><input id="o-ags" type="number" step="0.01"></div>
+          <div><label>Away Conceded (avg)</label><input id="o-agc" type="number" step="0.01"></div>
+        </div>
+        <label>League Goal Average</label><input id="o-lga" type="number" step="0.01">
+      </div>
+    </div>
+
+    <div class="step" data-step="2">
+      <div class="step-indicator">Step 3 / 5 — <span class="step-name">Trends</span></div>
+      <div class="card">
+        <label>Sample size (matches observed)</label><input id="o-sample-size" type="number" min="1" value="5">
+        <div class="subhead">Home</div>
+        <div class="grid2">
+          <div><label>Goals scored (total)</label><input id="o-h-scored" type="number" min="0"></div>
+          <div><label>Goals conceded (total)</label><input id="o-h-conceded" type="number" min="0"></div>
+          <div><label>Over 1.5 freq %</label><input id="o-h-over15" type="number" min="0" max="100"></div>
+          <div><label>BTTS freq %</label><input id="o-h-btts" type="number" min="0" max="100"></div>
+        </div>
+        <div class="subhead">Away</div>
+        <div class="grid2">
+          <div><label>Goals scored (total)</label><input id="o-a-scored" type="number" min="0"></div>
+          <div><label>Goals conceded (total)</label><input id="o-a-conceded" type="number" min="0"></div>
+          <div><label>Over 1.5 freq %</label><input id="o-a-over15" type="number" min="0" max="100"></div>
+          <div><label>BTTS freq %</label><input id="o-a-btts" type="number" min="0" max="100"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step="3">
+      <div class="step-indicator">Step 4 / 5 — <span class="step-name">Record &amp; Form</span></div>
+      <div class="card">
+        <div class="subhead">Season record</div>
+        <div class="grid3">
+          <div><label>Home W</label><input id="o-h-w" type="number" min="0"></div>
+          <div><label>Home D</label><input id="o-h-d" type="number" min="0"></div>
+          <div><label>Home L</label><input id="o-h-l" type="number" min="0"></div>
+          <div><label>Away W</label><input id="o-a-w" type="number" min="0"></div>
+          <div><label>Away D</label><input id="o-a-d" type="number" min="0"></div>
+          <div><label>Away L</label><input id="o-a-l" type="number" min="0"></div>
+        </div>
+        <div class="subhead">Last 5 form</div>
+        <div class="grid3">
+          <div><label>Home W</label><input id="o-hf-w" type="number" min="0" max="5"></div>
+          <div><label>Home D</label><input id="o-hf-d" type="number" min="0" max="5"></div>
+          <div><label>Home L</label><input id="o-hf-l" type="number" min="0" max="5"></div>
+          <div><label>Away W</label><input id="o-af-w" type="number" min="0" max="5"></div>
+          <div><label>Away D</label><input id="o-af-d" type="number" min="0" max="5"></div>
+          <div><label>Away L</label><input id="o-af-l" type="number" min="0" max="5"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step="4">
+      <div class="step-indicator">Step 5 / 5 — <span class="step-name">Notes</span></div>
+      <div class="card">
+        <label>Special observations (optional)</label>
+        <input id="o-special" placeholder="derby, injury, title race...">
+      </div>
+    </div>
+
+    <div class="wizard-nav">
+      <button class="secondary" id="wizard-back-btn" onclick="wizardBack()" style="display:none;">Back</button>
+      <button class="primary" id="wizard-next-btn" onclick="wizardNext()">Next</button>
+    </div>
+
+    <!-- Result -->
+    <div class="card" id="result-card" style="display:none; margin-top:16px;">
+      <span class="badge" id="result-badge"></span>
+      <div class="result-sub" id="result-goalenv"></div>
+      <div class="result-market" id="result-primary"></div>
+      <div class="result-sub">Secondary: <span id="result-secondary"></span></div>
+      <div class="why" id="result-why"></div>
+      <details>
+        <summary>Evidence &amp; reasoning</summary>
+        <div class="result-sub" style="margin-top:8px;">EGES <span id="result-eges" class="mono"></span> · Lean <span id="result-lean" class="mono"></span> · Points <span id="result-points" class="mono"></span></div>
+        <ul class="evidence-list" id="evidence-support"></ul>
+        <ul class="evidence-list" id="evidence-oppose"></ul>
+      </details>
+      <div class="wizard-nav" style="margin-top:14px;">
+        <button class="secondary" onclick="discardResult()">Discard</button>
+        <button class="primary" onclick="saveToEcho()">Save to Echo</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ECHO LOG ===== -->
+  <section class="screen" id="screen-log">
+    <div class="card">
+      <div class="row-between"><span class="mono result-sub" id="log-count"></span></div>
+      <div class="filter-row" id="log-filter-row">
+        <button class="filter-chip active" data-filter="all" onclick="setLogFilter('all')">All</button>
+        <button class="filter-chip" data-filter="pending" onclick="setLogFilter('pending')">Pending</button>
+        <button class="filter-chip" data-filter="resolved" onclick="setLogFilter('resolved')">Resolved</button>
+      </div>
+      <div id="log-list" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <!-- ===== REPORTS ===== -->
+  <section class="screen" id="screen-reports">
+    <div class="card" id="reports-summary-card">
+      <div class="result-market" id="reports-summary-rate" style="font-size:26px;"></div>
+      <div class="result-sub" id="reports-summary-sub"></div>
+    </div>
+    <div class="card"><h2 style="font-size:15px;">Market</h2><table id="report-market"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Secondary Market</h2><table id="report-secondary"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Goal Environment</h2><table id="report-goalenv"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Directional Lean</h2><div class="result-sub" style="margin-bottom:8px;">Did the favored side actually win? (Neutral excluded — no side favored)</div><table id="report-lean"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Confidence</h2><table id="report-confidence"></table></div>
+    <div class="card"><h2 style="font-size:15px;">League</h2><table id="report-league"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Signal Agreement</h2><div class="result-sub" style="margin-bottom:8px;">Primary market win rate when season average and recent trend agree vs. disagree</div><table id="report-conflict"></table></div>
+  </section>
+
+  <!-- ===== PATTERNS ===== -->
+  <section class="screen" id="screen-patterns">
+    <div class="card">
+      <h2 style="font-size:15px;">Log a pattern</h2>
+      <label>League / Competition</label><input id="p-league">
+      <label>Observation</label><input id="p-obs">
+      <label>Sample size</label><input id="p-sample" type="number" min="0">
+      <label>Notes</label><input id="p-notes">
+      <button class="primary full" onclick="addPattern()">Add Pattern</button>
+    </div>
+    <div id="pattern-list"></div>
+  </section>
+
+  <!-- ===== SETTINGS ===== -->
+  <section class="screen" id="screen-settings">
+    <div class="card">
+      <h2 style="font-size:15px;">Preferences</h2>
+      <div class="toggle-row">
+        <span>Light theme</span>
+        <div class="toggle" id="theme-toggle" onclick="toggleTheme()"><div class="knob"></div></div>
+      </div>
+      <div class="toggle-row">
+        <span>Show reasoning expanded by default</span>
+        <div class="toggle" id="expand-toggle" onclick="togglePref('expandReasoning')"><div class="knob"></div></div>
+      </div>
+      <div class="toggle-row">
+        <span>Confirm before discarding an entry</span>
+        <div class="toggle" id="confirm-toggle" onclick="togglePref('confirmDiscard')"><div class="knob"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">Evidence Thresholds</h2>
+      <div class="subhead">Over 1.5 frequency %</div>
+      <div class="grid2">
+        <div><label>Support ≥</label><input id="s-over15Support" type="number"></div>
+        <div><label>Oppose ≤</label><input id="s-over15Oppose" type="number"></div>
+      </div>
+      <div class="subhead">BTTS frequency %</div>
+      <div class="grid2">
+        <div><label>Support ≥</label><input id="s-bttsSupport" type="number"></div>
+        <div><label>Oppose ≤</label><input id="s-bttsOppose" type="number"></div>
+      </div>
+      <div class="subhead">Scored / conceded rate (goals per match)</div>
+      <div class="grid2">
+        <div><label>Support ≥</label><input id="s-scoredRateSupport" type="number" step="0.1"></div>
+        <div><label>Oppose ≤</label><input id="s-scoredRateOppose" type="number" step="0.1"></div>
+      </div>
+      <div class="subhead">League goal average</div>
+      <div class="grid2">
+        <div><label>Support ≥</label><input id="s-lgaSupport" type="number" step="0.1"></div>
+        <div><label>Oppose ≤</label><input id="s-lgaOppose" type="number" step="0.1"></div>
+      </div>
+      <div class="subhead">Win-rate gap for a lean point</div>
+      <input id="s-winRateGap" type="number" step="0.01">
+      <div class="row-between" style="gap:10px;">
+        <button class="secondary" onclick="resetSettings()">Reset</button>
+        <button class="primary" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">Data</h2>
+      <div class="row-between" style="gap:10px;">
+        <button class="secondary" style="flex:1;" onclick="exportData()">Export</button>
+        <button class="secondary" style="flex:1;" onclick="document.getElementById('import-file').click()">Import</button>
+      </div>
+      <input type="file" id="import-file" accept="application/json" style="display:none" onchange="importData(event)">
+      <button class="danger secondary full" style="margin-top:10px;" onclick="confirmClearAll()">Clear All Data</button>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="confirm-modal-overlay" onclick="if(event.target===this) closeConfirmModal()">
+  <div class="modal">
+    <h2 id="confirm-title" style="font-size:16px;margin-bottom:8px;"></h2>
+    <p id="confirm-message" style="font-size:13px;color:var(--ink-muted);margin-bottom:16px;"></p>
+    <div class="row-between" style="gap:10px;">
+      <button class="secondary" style="flex:1;" onclick="closeConfirmModal()">Cancel</button>
+      <button class="secondary" id="confirm-yes-btn" style="flex:1;" onclick="confirmYesAction()"></button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay detail-modal" id="detail-modal-overlay" onclick="if(event.target===this) closeDetailModal()">
+  <div class="modal">
+    <div class="row-between">
+      <h2 id="detail-title" style="font-size:17px;"></h2>
+      <button class="secondary small" onclick="closeDetailModal()">Close</button>
+    </div>
+    <div class="result-sub" id="detail-meta" style="margin:6px 0 14px;"></div>
+
+    <span class="badge" id="detail-confidence-badge"></span>
+    <div class="result-sub" style="margin-top:8px;">Goal Env: <span id="detail-goalenv" class="mono"></span></div>
+    <div class="result-sub">Lean: <span id="detail-lean" class="mono"></span></div>
+
+    <div class="result-market" id="detail-primary" style="font-size:19px;"></div>
+    <div class="result-sub">Secondary: <span id="detail-secondary"></span></div>
+    <div class="why" id="detail-why"></div>
+
+    <details>
+      <summary>Evidence &amp; reasoning</summary>
+      <div class="result-sub" style="margin-top:8px;">EGES <span id="detail-eges" class="mono"></span> · Points <span id="detail-points" class="mono"></span></div>
+      <ul class="evidence-list" id="detail-evidence-support"></ul>
+      <ul class="evidence-list" id="detail-evidence-oppose"></ul>
+    </details>
+
+    <div id="detail-result-actions" style="margin-top:16px;"></div>
+    <button class="danger secondary full" style="margin-top:14px;" onclick="deleteFixtureFromDetail()">Delete Fixture</button>
+  </div>
+</div>
+
+<script>
+// ============ STATE ============
+const DEFAULT_SETTINGS = {
+  over15Support: 65, over15Oppose: 40,
+  bttsSupport: 60, bttsOppose: 35,
+  scoredRateSupport: 1.4, scoredRateOppose: 0.6,
+  lgaSupport: 2.7, lgaOppose: 2.3,
+  winRateGap: 0.15
+};
+const DEFAULT_PREFS = { theme:'dark', expandReasoning:false, confirmDiscard:true };
+
+let fixtures = loadJSON('surveyor_fixtures', []);
+let patterns = loadJSON('surveyor_patterns', []);
+let settings = {...DEFAULT_SETTINGS, ...(loadJSON('surveyor_settings', {}) || {})};
+let prefs = {...DEFAULT_PREFS, ...(loadJSON('surveyor_prefs', {}) || {})};
+let lastEvaluation = null;
+let currentStep = 0;
+const TOTAL_STEPS = 5;
+
+function loadJSON(key, fallback){
+  try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+  catch(e){ return fallback; }
+}
+function persist(){
+  localStorage.setItem('surveyor_fixtures', JSON.stringify(fixtures));
+  localStorage.setItem('surveyor_patterns', JSON.stringify(patterns));
+  localStorage.setItem('surveyor_settings', JSON.stringify(settings));
+  localStorage.setItem('surveyor_prefs', JSON.stringify(prefs));
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+// ============ NAV ============
+function toggleMenu(open){ document.getElementById('menu-overlay').classList.toggle('show', open); }
+function goScreen(name){
+  toggleMenu(false);
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.querySelectorAll('.menu-panel button').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
+  document.getElementById('header-title').textContent =
+    {entry:'Surveyor', log:'Echo Log', reports:'Reports', patterns:'Patterns', settings:'Settings'}[name];
+  document.getElementById('back-btn').classList.remove('show');
+  if(name==='log') renderLog();
+  if(name==='reports') renderReports();
+  if(name==='patterns') renderPatterns();
+  if(name==='entry') syncWizardBackBtn();
+}
+
+// ============ WIZARD ============
+function showStep(i){
+  document.querySelectorAll('.step').forEach(s=>s.style.display='none');
+  document.querySelector(`.step[data-step="${i}"]`).style.display='block';
+  document.getElementById('wizard-back-btn').style.display = i===0 ? 'none' : 'block';
+  document.getElementById('wizard-next-btn').textContent = i===TOTAL_STEPS-1 ? 'Evaluate Fixture' : 'Next';
+  syncWizardBackBtn();
+}
+function syncWizardBackBtn(){
+  document.getElementById('back-btn').classList.toggle('show', currentStep>0 && document.getElementById('screen-entry').classList.contains('active') && document.getElementById('result-card').style.display==='none');
+}
+function wizardNext(){
+  if(currentStep===0 && (!document.getElementById('f-home').value.trim() || !document.getElementById('f-away').value.trim())){
+    toast('Home and away team required'); return;
+  }
+  if(currentStep < TOTAL_STEPS-1){
+    currentStep++; showStep(currentStep);
+  } else {
+    evaluateFixture();
+  }
+}
+function wizardBack(){
+  if(document.getElementById('result-card').style.display==='block'){ return; }
+  if(currentStep>0){ currentStep--; showStep(currentStep); }
+}
+function resetWizard(){
+  currentStep = 0;
+  document.querySelectorAll('#screen-entry input').forEach(i=>{ if(i.type!=='checkbox') i.value=''; else i.checked=false; });
+  document.getElementById('o-sample-size').value = '5';
+  document.getElementById('result-card').style.display='none';
+  document.querySelectorAll('.step').forEach(s=>s.style.display='');
+  document.querySelector('.wizard-nav').style.display='flex';
+  showStep(0);
+}
+
+// ============ HELPERS ============
+function num(id){ const v=document.getElementById(id).value; return v===''?0:parseFloat(v); }
+function str(id){ return document.getElementById(id).value.trim(); }
+function checked(id){ return document.getElementById(id).checked; }
+function evalMetric(value, o){
+  let direction=null;
+  if(o.higherIsSupport){
+    if(value>=o.supportAt) direction='support';
+    else if(value<=o.opposeAt) direction='oppose';
+  } else {
+    if(value<=o.supportAt) direction='support';
+    else if(value>=o.opposeAt) direction='oppose';
+  }
+  return direction ? {label:o.label, direction, market:o.market} : null;
+}
+
+function computeConflict(goalEnv, supportCount, opposeCount){
+  const net = supportCount - opposeCount;
+  if((goalEnv==='G4'||goalEnv==='G5') && net<=-2) return true;
+  if((goalEnv==='G1'||goalEnv==='G2') && net>=2) return true;
+  return false;
+}
+
+// ============ EVALUATION ENGINE ============
+function evaluateFixture(){
+  const country=str('f-country'), league=str('f-league'), date=str('f-date'), time=str('f-time'), home=str('f-home'), away=str('f-away');
+  const sampleSize = num('o-sample-size') || 5;
+
+  const obs = {
+    hgs:num('o-hgs'), hgc:num('o-hgc'), ags:num('o-ags'), agc:num('o-agc'), lga:num('o-lga'),
+    hScored:num('o-h-scored'), hConceded:num('o-h-conceded'), hOver15:num('o-h-over15'), hBtts:num('o-h-btts'),
+    aScored:num('o-a-scored'), aConceded:num('o-a-conceded'), aOver15:num('o-a-over15'), aBtts:num('o-a-btts'),
+    sampleSize: num('o-sample-size') || 5,
+    hW:num('o-h-w'), hD:num('o-h-d'), hL:num('o-h-l'), aW:num('o-a-w'), aD:num('o-a-d'), aL:num('o-a-l'),
+    hfW:num('o-hf-w'), hfD:num('o-hf-d'), hfL:num('o-hf-l'), afW:num('o-af-w'), afD:num('o-af-d'), afL:num('o-af-l'),
+    special:str('o-special')
+  };
+
+  const eges = (obs.hgs+obs.ags+obs.hgc+obs.agc)/2;
+  let goalEnv;
+  if(eges<2.0) goalEnv='G1'; else if(eges<2.5) goalEnv='G2'; else if(eges<3.0) goalEnv='G3';
+  else if(eges<3.5) goalEnv='G4'; else goalEnv='G5';
+  const goalEnvLabels={G1:'Very Low Goals',G2:'Low Goals',G3:'Balanced Goals',G4:'High Goals',G5:'Extreme Goals'};
+
+  const evidence=[];
+  [
+    evalMetric(obs.hOver15,{supportAt:settings.over15Support,opposeAt:settings.over15Oppose,higherIsSupport:true,label:`Home Over 1.5 freq ${obs.hOver15}%`,market:'over15'}),
+    evalMetric(obs.aOver15,{supportAt:settings.over15Support,opposeAt:settings.over15Oppose,higherIsSupport:true,label:`Away Over 1.5 freq ${obs.aOver15}%`,market:'over15'}),
+    evalMetric(obs.hBtts,{supportAt:settings.bttsSupport,opposeAt:settings.bttsOppose,higherIsSupport:true,label:`Home BTTS freq ${obs.hBtts}%`,market:'btts'}),
+    evalMetric(obs.aBtts,{supportAt:settings.bttsSupport,opposeAt:settings.bttsOppose,higherIsSupport:true,label:`Away BTTS freq ${obs.aBtts}%`,market:'btts'}),
+    evalMetric(obs.lga,{supportAt:settings.lgaSupport,opposeAt:settings.lgaOppose,higherIsSupport:true,label:`League goal average ${obs.lga}`,market:'over15'}),
+    evalMetric(obs.hScored/obs.sampleSize,{supportAt:settings.scoredRateSupport,opposeAt:settings.scoredRateOppose,higherIsSupport:true,label:`Home scored ${obs.hScored} goals in ${obs.sampleSize} matches (${(obs.hScored/obs.sampleSize).toFixed(2)}/match)`,market:'over15'}),
+    evalMetric(obs.aScored/obs.sampleSize,{supportAt:settings.scoredRateSupport,opposeAt:settings.scoredRateOppose,higherIsSupport:true,label:`Away scored ${obs.aScored} goals in ${obs.sampleSize} matches (${(obs.aScored/obs.sampleSize).toFixed(2)}/match)`,market:'over15'}),
+    evalMetric(obs.hConceded/obs.sampleSize,{supportAt:settings.scoredRateSupport,opposeAt:settings.scoredRateOppose,higherIsSupport:true,label:`Home conceded ${obs.hConceded} goals in ${obs.sampleSize} matches (${(obs.hConceded/obs.sampleSize).toFixed(2)}/match)`,market:'btts'}),
+    evalMetric(obs.aConceded/obs.sampleSize,{supportAt:settings.scoredRateSupport,opposeAt:settings.scoredRateOppose,higherIsSupport:true,label:`Away conceded ${obs.aConceded} goals in ${obs.sampleSize} matches (${(obs.aConceded/obs.sampleSize).toFixed(2)}/match)`,market:'btts'}),
+  ].forEach(c=>{ if(c) evidence.push(c); });
+
+  const supportCount=evidence.filter(e=>e.direction==='support').length;
+  const opposeCount=evidence.filter(e=>e.direction==='oppose').length;
+
+  let confidence;
+  if(supportCount>=5 && opposeCount<=2) confidence='High';
+  else if(opposeCount>supportCount) confidence='Low';
+  else if(supportCount>=3) confidence='Medium';
+  else confidence='Low';
+
+  let homePts=0, awayPts=0;
+  const homeWinRate=(obs.hW+obs.hD+obs.hL)>0 ? obs.hW/(obs.hW+obs.hD+obs.hL) : 0;
+  const awayWinRate=(obs.aW+obs.aD+obs.aL)>0 ? obs.aW/(obs.aW+obs.aD+obs.aL) : 0;
+  if(homeWinRate-awayWinRate>settings.winRateGap) homePts++; else if(awayWinRate-homeWinRate>settings.winRateGap) awayPts++;
+  if(obs.hfW>obs.afW) homePts++; else if(obs.afW>obs.hfW) awayPts++;
+  if(obs.hScored>obs.aScored) homePts++; else if(obs.aScored>obs.hScored) awayPts++;
+  if(obs.hConceded<obs.aConceded) homePts++; else if(obs.aConceded<obs.hConceded) awayPts++;
+
+  const diff=homePts-awayPts;
+  let lean, leanLabel;
+  if(diff>=3){lean='D1';leanLabel='Strong Home';} else if(diff>=1){lean='D2';leanLabel='Lean Home';}
+  else if(diff===0){lean='D3';leanLabel='Neutral';} else if(diff>=-2){lean='D4';leanLabel='Lean Away';}
+  else {lean='D5';leanLabel='Strong Away';}
+
+  const netGoalSignal = supportCount - opposeCount;
+
+  const bttsSupport=evidence.filter(e=>e.market==='btts'&&e.direction==='support').length;
+  const bttsOppose=evidence.filter(e=>e.market==='btts'&&e.direction==='oppose').length;
+  let primary, secondary, why;
+  const conflict = computeConflict(goalEnv, supportCount, opposeCount);
+  if(goalEnv==='G4'||goalEnv==='G5'){
+    primary='Over 1.5 Goals'; secondary=bttsSupport>bttsOppose?'BTTS':'Over 2.5 Goals';
+    why = conflict
+      ? `Season average points to ${goalEnvLabels[goalEnv].toLowerCase()} (EGES ${eges.toFixed(2)}), but recent trend evidence leans toward fewer goals (${supportCount} supporting / ${opposeCount} opposing) — signals conflict.`
+      : `${goalEnvLabels[goalEnv]} (EGES ${eges.toFixed(2)}); ${supportCount} supporting observation(s), ${opposeCount} opposing.`;
+  } else if(goalEnv==='G1'||goalEnv==='G2'){
+    primary='Under 3.5 Goals'; secondary='BTTS No';
+    why = conflict
+      ? `Season average points to ${goalEnvLabels[goalEnv].toLowerCase()} (EGES ${eges.toFixed(2)}), but recent trend evidence leans toward goals (${supportCount} supporting / ${opposeCount} opposing) — signals conflict.`
+      : `${goalEnvLabels[goalEnv]} (EGES ${eges.toFixed(2)}); ${supportCount} supporting observation(s), ${opposeCount} opposing.`;
+  } else {
+    if(bttsSupport>bttsOppose){ primary='BTTS'; secondary='Over 1.5 Goals'; }
+    else { primary='Over 1.5 Goals'; secondary='Under 3.5 Goals'; }
+    why=`Balanced environment (EGES ${eges.toFixed(2)}); BTTS evidence ${bttsSupport} for / ${bttsOppose} against.`;
+  }
+  if(conflict){
+    confidence = 'Low';
+    why += ' Treat this pick with extra caution.';
+  }
+  if(Math.abs(diff)>=3 && confidence==='High'){
+    why += ` Strong ${leanLabel.toLowerCase()} lean — Double Chance is a directional alternative.`;
+  }
+
+  lastEvaluation = {
+    id:'fx_'+Date.now(), country, league, date, time, home, away,
+    conflict,
+    neutral:checked('f-neutral'), cup:checked('f-cup'),
+    observations:obs, eges:+eges.toFixed(2), goalEnv, goalEnvLabel:goalEnvLabels[goalEnv],
+    evidence, supportCount, opposeCount, confidence, homePts, awayPts, lean, leanLabel,
+    primary, secondary, why,
+    result:{entered:false, homeScore:null, awayScore:null, primaryHit:null, secondaryHit:null},
+    createdAt:Date.now()
+  };
+  renderResult(lastEvaluation);
+}
+
+function renderResult(ev){
+  document.querySelectorAll('.step').forEach(s=>s.style.display='none');
+  document.querySelector('.wizard-nav').style.display='none';
+  const card = document.getElementById('result-card');
+  card.style.display='block';
+  document.getElementById('back-btn').classList.remove('show');
+  document.getElementById('result-badge').className = 'badge '+ev.confidence.toLowerCase();
+  document.getElementById('result-badge').textContent = ev.confidence+' confidence';
+  document.getElementById('result-goalenv').textContent = `${ev.goalEnv} — ${ev.goalEnvLabel}`;
+  document.getElementById('result-primary').textContent = ev.primary;
+  document.getElementById('result-secondary').textContent = ev.secondary;
+  document.getElementById('result-why').textContent = ev.why;
+  document.getElementById('result-eges').textContent = ev.eges;
+  document.getElementById('result-lean').textContent = `${ev.lean} — ${ev.leanLabel}`;
+  document.getElementById('result-points').textContent = `${ev.homePts} / ${ev.awayPts}`;
+  document.getElementById('evidence-support').innerHTML = ev.evidence.filter(e=>e.direction==='support').map(e=>`<li class="support">${e.label}</li>`).join('');
+  document.getElementById('evidence-oppose').innerHTML = ev.evidence.filter(e=>e.direction==='oppose').map(e=>`<li class="oppose">${e.label}</li>`).join('');
+  const details = card.querySelector('details');
+  if(prefs.expandReasoning) details.setAttribute('open','');
+  card.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function discardResult(){
+  if(prefs.confirmDiscard){
+    showConfirm('Discard entry?', 'This evaluation will be lost.', 'Discard', doDiscard);
+  } else {
+    doDiscard();
+  }
+}
+function doDiscard(){
+  lastEvaluation = null;
+  resetWizard();
+}
+function saveToEcho(){
+  if(!lastEvaluation) return;
+  fixtures.unshift(lastEvaluation);
+  persist();
+  refreshMemory();
+  toast('Saved to Echo Log');
+  lastEvaluation = null;
+  resetWizard();
+}
+
+// ============ ECHO LOG ============
+let logFilter = 'all';
+function setLogFilter(filter){
+  logFilter = filter;
+  document.querySelectorAll('.filter-chip').forEach(b=>b.classList.toggle('active', b.dataset.filter===filter));
+  renderLog();
+}
+function renderLog(){
+  const total = fixtures.length;
+  const pendingCount = fixtures.filter(f=>!f.result.entered).length;
+  document.getElementById('log-count').textContent = `${total} logged · ${pendingCount} pending`;
+
+  let shown = fixtures;
+  if(logFilter==='pending') shown = fixtures.filter(f=>!f.result.entered);
+  if(logFilter==='resolved') shown = fixtures.filter(f=>f.result.entered);
+
+  // Sort by match date (fixtures without a date fall back to entry order, kept at the end).
+  shown = [...shown].sort((a,b)=>{
+    if(a.date && b.date) return b.date.localeCompare(a.date) || (b.time||'').localeCompare(a.time||'') || b.createdAt-a.createdAt;
+    if(a.date) return -1;
+    if(b.date) return 1;
+    return b.createdAt - a.createdAt;
+  });
+
+  const list = document.getElementById('log-list');
+  if(shown.length===0){
+    list.innerHTML = `<div class="empty">${logFilter==='all' ? 'No entries yet. Evaluate a fixture to begin.' : `No ${logFilter} fixtures.`}</div>`;
+    return;
+  }
+  list.innerHTML = shown.map((fx)=>{
+    const idx = String(fixtures.length - fixtures.indexOf(fx)).padStart(3,'0');
+    let badgeCls, badgeText;
+    if(fx.result.entered){
+      badgeCls = fx.result.primaryHit ? 'won' : 'lost';
+      badgeText = `${fx.result.homeScore}–${fx.result.awayScore}`;
+    } else {
+      badgeCls = 'pending'; badgeText = 'Pending';
+    }
+    return `<div class="log-card" onclick="openFixtureDetail('${fx.id}')">
+      <div class="row-between">
+        <span class="entry-idx">No.${idx}</span>
+        <span class="badge ${badgeCls}">${badgeText}</span>
+      </div>
+      <div class="log-card-fixture">${fx.home} vs ${fx.away}</div>
+      <div class="log-card-meta">${leagueLabel(fx)} · ${dateLabel(fx)}</div>
+    </div>`;
+  }).join('');
+}
+
+function evaluateMarketHit(market, hs, as){
+  const total = hs + as;
+  if(market === 'Over 1.5 Goals') return total >= 2;
+  if(market === 'Over 2.5 Goals') return total >= 3;
+  if(market === 'Under 3.5 Goals') return total <= 3;
+  if(market === 'BTTS') return hs > 0 && as > 0;
+  if(market === 'BTTS No') return !(hs > 0 && as > 0);
+  return null;
+}
+
+let currentDetailId = null;
+function openFixtureDetail(id){
+  currentDetailId = id;
+  const fx = fixtures.find(f=>f.id===id); if(!fx) return;
+  document.getElementById('detail-title').textContent = `${fx.home} vs ${fx.away}`;
+  document.getElementById('detail-meta').textContent = `${leagueLabel(fx)} · ${dateLabel(fx)}`;
+  document.getElementById('detail-confidence-badge').className = 'badge '+fx.confidence.toLowerCase();
+  document.getElementById('detail-confidence-badge').textContent = fx.confidence+' confidence';
+  document.getElementById('detail-goalenv').textContent = `${fx.goalEnv} — ${fx.goalEnvLabel}`;
+  document.getElementById('detail-lean').textContent = `${fx.lean} — ${fx.leanLabel}`;
+  document.getElementById('detail-primary').textContent = fx.primary;
+  document.getElementById('detail-secondary').textContent = fx.secondary;
+  document.getElementById('detail-why').textContent = fx.why;
+  document.getElementById('detail-eges').textContent = fx.eges;
+  document.getElementById('detail-points').textContent = `${fx.homePts} / ${fx.awayPts}`;
+  document.getElementById('detail-evidence-support').innerHTML = fx.evidence.filter(e=>e.direction==='support').map(e=>`<li class="support">${e.label}</li>`).join('') || '<li style="background:none;color:var(--ink-muted);">None</li>';
+  document.getElementById('detail-evidence-oppose').innerHTML = fx.evidence.filter(e=>e.direction==='oppose').map(e=>`<li class="oppose">${e.label}</li>`).join('') || '<li style="background:none;color:var(--ink-muted);">None</li>';
+
+  renderResultActions(fx, false);
+  document.getElementById('detail-modal-overlay').classList.add('show');
+}
+
+function renderResultActions(fx, editMode){
+  const actions = document.getElementById('detail-result-actions');
+  if(!fx.result.entered || editMode){
+    actions.innerHTML = `
+      <div class="result-sub" style="margin-bottom:8px;">Final score</div>
+      <div class="grid2">
+        <div><label>${fx.home}</label><input id="score-home-input" type="number" min="0" value="${fx.result.entered ? fx.result.homeScore : ''}"></div>
+        <div><label>${fx.away}</label><input id="score-away-input" type="number" min="0" value="${fx.result.entered ? fx.result.awayScore : ''}"></div>
+      </div>
+      <button class="primary full" onclick="saveScore('${fx.id}')">Save Score</button>
+    `;
+  } else {
+    const pText = fx.result.primaryHit === null ? 'not tracked for this market' : (fx.result.primaryHit ? 'Hit' : 'Miss');
+    const sText = fx.result.secondaryHit === null ? 'not tracked for this market' : (fx.result.secondaryHit ? 'Hit' : 'Miss');
+    actions.innerHTML = `
+      <div class="result-market" style="font-size:22px;">${fx.result.homeScore}–${fx.result.awayScore}</div>
+      <div class="result-sub">Primary (${fx.primary}): <span class="mono">${pText}</span></div>
+      <div class="result-sub">Secondary (${fx.secondary}): <span class="mono">${sText}</span></div>
+      <button class="secondary full" style="margin-top:10px;" onclick="editScore('${fx.id}')">Edit Score</button>
+    `;
+  }
+}
+
+function evaluateLeanHit(lean, hs, as){
+  if(lean==='D1'||lean==='D2') return hs>as;
+  if(lean==='D4'||lean==='D5') return as>hs;
+  return null; // D3 Neutral makes no directional claim, so it's not scoreable as hit/miss
+}
+
+function saveScore(id){
+  const fx = fixtures.find(f=>f.id===id); if(!fx) return;
+  const hsVal = document.getElementById('score-home-input').value;
+  const asVal = document.getElementById('score-away-input').value;
+  if(hsVal === '' || asVal === ''){ toast('Enter both scores'); return; }
+  const hs = parseInt(hsVal), as = parseInt(asVal);
+  fx.result.entered = true;
+  fx.result.homeScore = hs;
+  fx.result.awayScore = as;
+  fx.result.primaryHit = evaluateMarketHit(fx.primary, hs, as);
+  fx.result.secondaryHit = evaluateMarketHit(fx.secondary, hs, as);
+  fx.result.leanHit = evaluateLeanHit(fx.lean, hs, as);
+  persist();
+  renderLog();
+  toast('Score saved');
+  renderResultActions(fx, false);
+}
+function editScore(id){
+  const fx = fixtures.find(f=>f.id===id); if(!fx) return;
+  renderResultActions(fx, true);
+}
+function deleteFixtureFromDetail(){
+  if(!currentDetailId) return;
+  const id = currentDetailId;
+  showConfirm('Delete this fixture?', 'This removes it from the Echo Log permanently.', 'Delete', ()=>{
+    fixtures = fixtures.filter(f=>f.id!==id);
+    persist();
+    renderLog();
+    refreshMemory();
+    closeDetailModal();
+    toast('Fixture deleted');
+  });
+}
+function closeDetailModal(){ document.getElementById('detail-modal-overlay').classList.remove('show'); currentDetailId = null; }
+
+// ============ REPORTS ============
+function backfillLeanHit(){
+  let changed = false;
+  fixtures.forEach(fx=>{
+    if(fx.result.entered && fx.result.leanHit===undefined){
+      fx.result.leanHit = evaluateLeanHit(fx.lean, fx.result.homeScore, fx.result.awayScore);
+      changed = true;
+    }
+    if(fx.conflict===undefined){
+      fx.conflict = computeConflict(fx.goalEnv, fx.supportCount, fx.opposeCount);
+      changed = true;
+    }
+  });
+  if(changed) persist();
+}
+function renderReports(){
+  backfillLeanHit();
+  const resolved = fixtures.filter(f=>f.result.entered);
+  const summaryRate = document.getElementById('reports-summary-rate');
+  const summarySub = document.getElementById('reports-summary-sub');
+  if(resolved.length===0){
+    summaryRate.textContent = '—';
+    summarySub.textContent = 'No resolved fixtures yet.';
+  } else {
+    const wins = resolved.filter(f=>f.result.primaryHit).length;
+    const pct = ((wins/resolved.length)*100).toFixed(0);
+    summaryRate.textContent = `${pct}% win rate`;
+    const pendingCount = fixtures.filter(f=>!f.result.entered).length;
+    summarySub.textContent = `${wins}/${resolved.length} resolved` + (pendingCount>0 ? ` · ${pendingCount} pending` : '');
+  }
+  renderReportTable('report-market', groupWinRate(resolved, f=>f.primary, f=>f.result.primaryHit));
+  renderReportTable('report-secondary', groupWinRate(resolved, f=>f.secondary, f=>f.result.secondaryHit));
+  renderReportTable('report-goalenv', groupWinRate(resolved, f=>f.goalEnv, f=>f.result.primaryHit));
+  renderReportTable('report-lean', groupWinRate(resolved, f=>f.leanLabel, f=>f.result.leanHit));
+  renderReportTable('report-confidence', groupWinRate(resolved, f=>f.confidence, f=>f.result.primaryHit));
+  renderReportTable('report-league', groupWinRate(resolved, f=>leagueLabel(f), f=>f.result.primaryHit));
+  renderReportTable('report-conflict', groupWinRate(resolved, f=>f.conflict ? 'Conflicting Signals' : 'Aligned Signals', f=>f.result.primaryHit));
+}
+function groupWinRate(list, keyFn, hitFn){
+  const groups={};
+  list.forEach(f=>{
+    const hit = hitFn(f);
+    if(hit===null || hit===undefined) return;
+    const k=keyFn(f);
+    if(!groups[k]) groups[k]={wins:0,total:0};
+    groups[k].total++;
+    if(hit) groups[k].wins++;
+  });
+  return groups;
+}
+function renderReportTable(elId, groups){
+  const el = document.getElementById(elId);
+  const keys = Object.keys(groups);
+  if(keys.length===0){ el.innerHTML = `<tr><td class="empty" style="padding:14px 4px;">No resolved fixtures yet</td></tr>`; return; }
+  el.innerHTML = `<tr><th>Group</th><th>Record</th><th>Win %</th></tr>` + keys.map(k=>{
+    const g=groups[k]; const pct=((g.wins/g.total)*100).toFixed(0);
+    return `<tr><td>${k}</td><td class="num">${g.wins}/${g.total}</td><td class="num">${pct}%</td></tr>`;
+  }).join('');
+}
+
+// ============ PATTERNS ============
+function patternStatus(sample){
+  if(sample>=100) return {status:'Validated', cls:'validated'};
+  if(sample>=50) return {status:'Provisional', cls:'provisional'};
+  if(sample>=20) return {status:'Testing', cls:'testing'};
+  return {status:'Observed', cls:'observed'};
+}
+function addPattern(){
+  const league=str('p-league'), obs=str('p-obs'), notes=str('p-notes'), sample=num('p-sample');
+  if(!obs){ toast('Observation required'); return; }
+  patterns.unshift({id:'pt_'+Date.now(), league, obs, sample, notes, createdAt:Date.now()});
+  persist();
+  ['p-league','p-obs','p-sample','p-notes'].forEach(id=>document.getElementById(id).value='');
+  renderPatterns(); toast('Pattern logged');
+}
+function incrementSample(id){ const p=patterns.find(x=>x.id===id); if(!p) return; p.sample++; persist(); renderPatterns(); }
+function deletePattern(id){ patterns = patterns.filter(x=>x.id!==id); persist(); renderPatterns(); }
+function renderPatterns(){
+  const list = document.getElementById('pattern-list');
+  if(patterns.length===0){ list.innerHTML = `<div class="card"><div class="empty">Registry empty. Log a recurring observation above.</div></div>`; return; }
+  list.innerHTML = patterns.map(p=>{
+    const s = patternStatus(p.sample);
+    return `<div class="card">
+      <div class="row-between"><span class="badge ${s.cls}">${s.status}</span>
+      <button class="secondary small" onclick="deletePattern('${p.id}')">Delete</button></div>
+      <div style="margin-top:10px;font-size:14px;">${p.obs}</div>
+      <div class="meta result-sub" style="margin-top:4px;">${p.league||'Unspecified'} · ${p.sample} matches${p.notes?' · '+p.notes:''}</div>
+      <button class="secondary small" style="margin-top:8px;" onclick="incrementSample('${p.id}')">+1 Match Observed</button>
+    </div>`;
+  }).join('');
+}
+
+// ============ SETTINGS / PREFS ============
+function loadSettingsUI(){
+  document.getElementById('s-over15Support').value = settings.over15Support;
+  document.getElementById('s-over15Oppose').value = settings.over15Oppose;
+  document.getElementById('s-bttsSupport').value = settings.bttsSupport;
+  document.getElementById('s-bttsOppose').value = settings.bttsOppose;
+  document.getElementById('s-scoredRateSupport').value = settings.scoredRateSupport;
+  document.getElementById('s-scoredRateOppose').value = settings.scoredRateOppose;
+  document.getElementById('s-lgaSupport').value = settings.lgaSupport;
+  document.getElementById('s-lgaOppose').value = settings.lgaOppose;
+  document.getElementById('s-winRateGap').value = settings.winRateGap;
+}
+function saveSettings(){
+  settings = {
+    over15Support:parseFloat(document.getElementById('s-over15Support').value),
+    over15Oppose:parseFloat(document.getElementById('s-over15Oppose').value),
+    bttsSupport:parseFloat(document.getElementById('s-bttsSupport').value),
+    bttsOppose:parseFloat(document.getElementById('s-bttsOppose').value),
+    scoredRateSupport:parseFloat(document.getElementById('s-scoredRateSupport').value),
+    scoredRateOppose:parseFloat(document.getElementById('s-scoredRateOppose').value),
+    lgaSupport:parseFloat(document.getElementById('s-lgaSupport').value),
+    lgaOppose:parseFloat(document.getElementById('s-lgaOppose').value),
+    winRateGap:parseFloat(document.getElementById('s-winRateGap').value)
+  };
+  persist(); toast('Thresholds saved');
+}
+function resetSettings(){ settings = {...DEFAULT_SETTINGS}; loadSettingsUI(); persist(); toast('Reset to defaults'); }
+
+function applyPrefsUI(){
+  document.documentElement.dataset.theme = prefs.theme;
+  document.getElementById('theme-toggle').classList.toggle('on', prefs.theme==='light');
+  document.getElementById('expand-toggle').classList.toggle('on', prefs.expandReasoning);
+  document.getElementById('confirm-toggle').classList.toggle('on', prefs.confirmDiscard);
+}
+function toggleTheme(){
+  prefs.theme = prefs.theme==='dark' ? 'light' : 'dark';
+  persist(); applyPrefsUI();
+}
+function togglePref(key){
+  prefs[key] = !prefs[key];
+  persist(); applyPrefsUI();
+}
+
+// ============ DATA IO ============
+function exportData(){
+  const payload = { fixtures, patterns, settings, prefs, exportedAt:new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=`surveyor-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+function importData(event){
+  const file = event.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const data = JSON.parse(e.target.result);
+      if(data.fixtures) fixtures=data.fixtures;
+      if(data.patterns) patterns=data.patterns;
+      if(data.settings) settings=data.settings;
+      if(data.prefs) prefs=data.prefs;
+      persist(); loadSettingsUI(); applyPrefsUI(); renderLog(); renderReports(); renderPatterns(); refreshMemory();
+      toast('Data imported');
+    }catch(err){ toast('Invalid file'); }
+  };
+  reader.readAsText(file); event.target.value='';
+}
+function confirmClearAll(){
+  showConfirm('Clear all data?', 'Deletes every fixture and pattern permanently.', 'Delete', clearAllConfirmed);
+}
+let pendingConfirmAction = null;
+function showConfirm(title, message, yesLabel, callback){
+  pendingConfirmAction = callback;
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-message').textContent = message;
+  const yesBtn = document.getElementById('confirm-yes-btn');
+  yesBtn.textContent = yesLabel;
+  yesBtn.className = yesLabel.toLowerCase().includes('delete') || yesLabel.toLowerCase().includes('discard') ? 'danger secondary' : 'secondary';
+  document.getElementById('confirm-modal-overlay').classList.add('show');
+}
+function confirmYesAction(){
+  if(pendingConfirmAction) pendingConfirmAction();
+  closeConfirmModal();
+}
+function closeConfirmModal(){
+  document.getElementById('confirm-modal-overlay').classList.remove('show');
+  pendingConfirmAction = null;
+}
+function clearAllConfirmed(){
+  fixtures=[]; patterns=[]; settings={...DEFAULT_SETTINGS};
+  persist(); loadSettingsUI(); renderLog(); renderReports(); renderPatterns(); refreshMemory();
+  toast('All data cleared');
+}
+
+// ============ MEMORY: AUTOCOMPLETE, RECENT CHIPS, DATE SHORTCUTS ============
+function dateLabel(fx){
+  return fx.time ? `${fx.date||'—'} · ${fx.time}` : (fx.date||'—');
+}
+function leagueLabel(fx){
+  if(fx.country && fx.league) return `${fx.country} — ${fx.league}`;
+  return fx.country || fx.league || 'Unspecified';
+}
+function setDatalist(id, values){
+  document.getElementById(id).innerHTML = values.map(v=>`<option value="${String(v).replace(/"/g,'&quot;')}">`).join('');
+}
+function refreshMemory(){
+  const countries = new Set(), leagues = new Set(), teams = new Set();
+  fixtures.forEach(fx=>{
+    if(fx.country) countries.add(fx.country);
+    if(fx.league) leagues.add(fx.league);
+    if(fx.home) teams.add(fx.home);
+    if(fx.away) teams.add(fx.away);
+  });
+  setDatalist('country-list', [...countries]);
+  setDatalist('league-list', [...leagues]);
+  setDatalist('home-team-list', [...teams]);
+  setDatalist('away-team-list', [...teams]);
+  renderRecentChips();
+}
+function renderRecentChips(){
+  const container = document.getElementById('recent-league-chips');
+  if(!container) return;
+  const seen = new Set(), pairs = [];
+  for(const fx of fixtures){
+    if(!fx.country && !fx.league) continue;
+    const key = `${fx.country}|||${fx.league}`;
+    if(!seen.has(key)){ seen.add(key); pairs.push({country:fx.country, league:fx.league}); }
+    if(pairs.length >= 6) break;
+  }
+  container.innerHTML = pairs.map(p=>
+    `<button type="button" class="chip" onclick="applyLeaguePair('${p.country.replace(/'/g,"\\'")}','${p.league.replace(/'/g,"\\'")}')">${leagueLabel(p)}</button>`
+  ).join('');
+}
+function applyLeaguePair(country, league){
+  document.getElementById('f-country').value = country;
+  document.getElementById('f-league').value = league;
+}
+function setDateShortcut(daysAhead){
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  document.getElementById('f-date').value = d.toISOString().slice(0,10);
+}
+loadSettingsUI();
+applyPrefsUI();
+showStep(0);
+refreshMemory();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
