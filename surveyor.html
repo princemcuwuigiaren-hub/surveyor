@@ -1,0 +1,2633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Surveyor</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#121314">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Surveyor">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#121314; --surface:#1A1C1E; --border:#2B2E31;
+    --ink:#EDEDED; --ink-muted:#8C9094;
+    --amber:#D9A441; --amber-dim:#8A6E33;
+    --support:#6FA184; --oppose:#C06A62;
+  }
+  [data-theme="light"]{
+    --bg:#F7F5F1; --surface:#FFFFFF; --border:#DEDAD2;
+    --ink:#1C1C1C; --ink-muted:#6B6660;
+    --amber:#B4812A; --amber-dim:#D8C29A;
+    --support:#3F7C5C; --oppose:#A8443B;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; padding-bottom:40px; }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+  h1,h2{ font-family:'Space Grotesk',sans-serif; font-weight:700; margin:0; }
+
+  /* Top bar */
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 18px; border-bottom:1px solid var(--border);
+    position:sticky; top:0; background:var(--bg); z-index:20;
+  }
+  header h1{ font-size:15px; letter-spacing:0.18em; text-transform:uppercase; }
+  .info-btn{
+    background:var(--surface); border:1px solid var(--border); color:var(--ink-muted);
+    width:26px; height:26px; border-radius:50%; font-size:13px; cursor:pointer; flex-shrink:0;
+  }
+
+  .board-capture{ background:var(--bg); padding:20px; border-radius:8px; border:1px solid var(--border); }
+  .board-header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:16px; }
+  .board-date{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; color:var(--ink); }
+  .board-brand{ font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:0.14em; font-size:13px; color:var(--amber); }
+  .board-table{ width:100%; border-collapse:collapse; table-layout:fixed; }
+  .board-table thead tr{ background:var(--surface); }
+  .board-table th:nth-child(1){ width:16%; }
+  .board-table th:nth-child(2){ width:29%; }
+  .board-table th:nth-child(3){ width:22%; }
+  .board-table th:nth-child(4){ width:18%; }
+  .board-table th:nth-child(5){ width:15%; }
+  .board-table th{ padding:10px 6px; text-align:left; font-size:9px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-muted); border-bottom:1px solid var(--border); font-weight:600; }
+  .board-table td{ padding:10px 6px; font-size:12px; border-bottom:1px solid var(--border); color:var(--ink); vertical-align:middle; word-break:break-word; }
+  .board-table td:nth-child(1){ word-break:normal; white-space:normal; }
+  .board-row-alt{ background:rgba(255,255,255,0.02); }
+  .board-status{ display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; font-size:10px; font-weight:700; }
+  .board-status.hit{ background:var(--support); color:#0C1F16; }
+  .board-status.miss{ background:var(--oppose); color:#2B0E0B; }
+  .board-status.pending{ background:var(--border); color:var(--ink-muted); }
+  .board-confidence{ font-size:11px; font-weight:600; }
+  .board-confidence.high{ color:var(--amber); }
+  .board-confidence.medium{ color:var(--ink-muted); }
+  .board-confidence.low{ color:var(--oppose); }
+  .board-footer{ text-align:center; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-muted); margin-top:14px; letter-spacing:0.05em; }
+  header .back-btn{ font-size:20px; background:none; border:none; color:var(--ink); cursor:pointer; padding:4px 8px; visibility:hidden; }
+  header .back-btn.show{ visibility:visible; }
+  header .menu-btn{ background:none; border:none; color:var(--ink); cursor:pointer; font-size:22px; padding:4px 8px; line-height:1; }
+
+  /* Slide-in menu */
+  .menu-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:30;
+    display:none;
+  }
+  .menu-overlay.show{ display:block; }
+  .menu-panel{
+    position:fixed; top:0; right:0; height:100%; width:78%; max-width:280px;
+    background:var(--surface); border-left:1px solid var(--border);
+    padding:18px; transform:translateX(100%); transition:transform .2s ease;
+  }
+  .menu-overlay.show .menu-panel{ transform:translateX(0); }
+  .menu-panel button{
+    display:block; width:100%; text-align:left; background:none; border:none;
+    color:var(--ink); font-size:15px; padding:13px 4px; border-bottom:1px solid var(--border);
+    cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .menu-panel button.active{ color:var(--amber); }
+
+  main{ padding:16px; max-width:640px; margin:0 auto; }
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  /* Wizard */
+  .survey-progress{ display:flex; align-items:flex-end; gap:6px; margin-bottom:10px; }
+  .survey-progress .tick{
+    flex:1; height:4px; background:var(--border); border-radius:2px;
+    transition:background .2s ease, height .2s ease, box-shadow .2s ease;
+  }
+  .survey-progress .tick.done{ background:var(--amber-dim); }
+  .survey-progress .tick.current{ background:var(--amber); height:6px; box-shadow:0 0 0 3px rgba(217,164,65,0.15); }
+  .step-label{ display:flex; align-items:baseline; gap:9px; margin-bottom:14px; }
+  .step-label .step-index{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-muted); letter-spacing:0.06em; }
+  .step-label .step-tag{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--amber); border:1px solid var(--amber-dim); border-radius:3px; padding:2px 8px;
+  }
+  .step-indicator{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.06em;
+    color:var(--ink-muted); text-transform:uppercase; margin-bottom:14px;
+  }
+  .step-indicator .step-name{ color:var(--amber); }
+
+  /* Recessed, instrument-like feel for wizard inputs specifically */
+  #screen-entry .step input, #screen-entry .step select{
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.22);
+    transition: box-shadow .15s ease, border-color .15s ease;
+  }
+  #screen-entry .step input:focus, #screen-entry .step select:focus{
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.22), 0 0 0 3px rgba(217,164,65,0.15);
+  }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:14px; }
+  .card h2{ font-size:16px; margin-bottom:14px; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+
+  label{ display:block; font-size:12px; color:var(--ink-muted); margin-bottom:4px; }
+  input, select, textarea{
+    width:100%; background:var(--bg); border:1px solid var(--border); color:var(--ink);
+    padding:10px; border-radius:6px; font-size:14px; margin-bottom:12px; font-family:'Inter',sans-serif;
+  }
+  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--amber); }
+
+  .subhead{ font-size:12px; color:var(--ink-muted); margin:16px 0 8px; }
+  .subhead:first-child{ margin-top:0; }
+
+  .chip-row{ display:flex; gap:8px; overflow-x:auto; margin-bottom:12px; padding-bottom:2px; }
+  .chip-row:empty{ display:none; margin:0; }
+  .chip{
+    flex-shrink:0; background:var(--bg); border:1px solid var(--border); color:var(--ink-muted);
+    font-size:12px; padding:8px 12px; border-radius:16px; cursor:pointer; white-space:nowrap;
+    font-family:'Inter',sans-serif; -webkit-tap-highlight-color:transparent; user-select:none;
+    transition:transform .1s ease-out, border-color .15s ease, color .15s ease;
+  }
+  .chip:active{ border-color:var(--amber); color:var(--amber); transform:scale(0.93); }
+
+  .filter-row{ display:flex; gap:8px; }
+  .filter-chip{
+    flex:1; background:var(--bg); border:1px solid var(--border); color:var(--ink-muted);
+    font-size:12px; padding:9px 10px; border-radius:6px; cursor:pointer; font-family:'Inter',sans-serif;
+    -webkit-tap-highlight-color:transparent; user-select:none;
+    transition:transform .1s ease-out, border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .filter-chip.active{ border-color:var(--amber); color:var(--amber); background:rgba(217,164,65,0.08); }
+  .filter-chip:active{ transform:scale(0.96); }
+
+  .checkbox-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; -webkit-tap-highlight-color:transparent; }
+  .checkbox-row label{ margin:0; color:var(--ink); font-size:13px; user-select:none; }
+  .checkbox-row input[type="checkbox"]{
+    appearance:none; -webkit-appearance:none;
+    width:20px; height:20px; margin:0; flex-shrink:0; padding:0;
+    background:var(--bg); border:1.5px solid var(--border); border-radius:4px;
+    cursor:pointer; position:relative;
+    transition:transform .1s ease-out, background .15s ease, border-color .15s ease;
+  }
+  .checkbox-row input[type="checkbox"]:checked{ background:var(--amber); border-color:var(--amber); }
+  .checkbox-row input[type="checkbox"]:checked::after{
+    content:''; position:absolute; left:6px; top:2px; width:5px; height:10px;
+    border:solid #1A1508; border-width:0 2px 2px 0; transform:rotate(45deg);
+  }
+  .checkbox-row input[type="checkbox"]:active{ transform:scale(0.85); }
+
+  .wizard-nav{ display:flex; gap:10px; }
+  button{ -webkit-tap-highlight-color: transparent; user-select:none; }
+  button.primary{
+    background:var(--amber); color:#1A1508; border:none; font-weight:600;
+    padding:13px 18px; border-radius:6px; cursor:pointer; font-size:14px; flex:1;
+    box-shadow:0 2px 0 var(--amber-dim), 0 5px 12px rgba(0,0,0,0.22);
+    transform:translateY(0); transition:transform .1s ease-out, box-shadow .1s ease-out, background .15s ease;
+  }
+  button.primary:active{
+    transform:translateY(2px); box-shadow:0 0 0 var(--amber-dim), 0 1px 3px rgba(0,0,0,0.18);
+  }
+  button.secondary{
+    background:none; border:1px solid var(--border); color:var(--ink);
+    padding:13px 18px; border-radius:6px; cursor:pointer; font-size:14px;
+    box-shadow:0 2px 0 rgba(0,0,0,0.14);
+    transform:translateY(0); transition:transform .1s ease-out, box-shadow .1s ease-out, border-color .15s ease, background .15s ease;
+  }
+  button.secondary:active{
+    transform:translateY(2px); box-shadow:none; border-color:var(--amber); background:rgba(217,164,65,0.06);
+  }
+  button.danger{ border-color:var(--oppose); color:var(--oppose); }
+  button.danger:active{ border-color:var(--oppose); background:rgba(192,106,98,0.1); }
+  button.small{ padding:7px 12px; font-size:12px; }
+  button.full{ width:100%; }
+
+  .badge{
+    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600;
+    padding:4px 10px; border-radius:4px; letter-spacing:0.03em;
+  }
+  .badge.high{ background:rgba(217,164,65,0.15); color:var(--amber); }
+  .badge.medium{ background:rgba(140,144,148,0.15); color:var(--ink-muted); }
+  .badge.low{ background:rgba(192,106,98,0.15); color:var(--oppose); }
+  .badge.observed{ background:rgba(140,144,148,0.15); color:var(--ink-muted); }
+  .badge.testing{ background:rgba(111,161,132,0.12); color:var(--support); }
+  .badge.provisional{ background:rgba(217,164,65,0.15); color:var(--amber); }
+  .badge.validated{ background:rgba(111,161,132,0.2); color:var(--support); }
+
+  .result-market{ font-size:24px; font-weight:600; margin:10px 0 2px; }
+  .result-sub{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-muted); }
+  .why{ font-size:13px; color:var(--ink-muted); margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+
+  details{ margin-top:12px; }
+  summary{ cursor:pointer; font-size:12px; color:var(--amber); }
+  .evidence-list{ list-style:none; padding:0; margin:10px 0 0; }
+  .evidence-list li{ font-size:13px; padding:6px 10px; border-radius:5px; margin-bottom:4px; }
+  .evidence-list li.support{ background:rgba(111,161,132,0.1); color:var(--support); }
+  .evidence-list li.oppose{ background:rgba(192,106,98,0.1); color:var(--oppose); }
+
+  .entry-row{ display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border); gap:10px; }
+  .entry-row:last-child{ border-bottom:none; }
+  .entry-idx{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber-dim); min-width:34px; }
+  .entry-main .fixture{ font-size:14px; }
+  .entry-main .meta{ font-size:11px; color:var(--ink-muted); margin-top:2px; }
+
+  .empty{ text-align:center; padding:36px 16px; color:var(--ink-muted); font-size:13px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th,td{ text-align:left; padding:8px 4px; border-bottom:1px solid var(--border); }
+  th{ color:var(--ink-muted); font-size:11px; text-transform:uppercase; font-weight:500; }
+  td.num{ font-family:'JetBrains Mono',monospace; text-align:right; }
+
+  .row-between{ display:flex; justify-content:space-between; align-items:center; }
+  .toggle-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+  .toggle-row:last-child{ border-bottom:none; }
+  .toggle{ position:relative; width:42px; height:24px; background:var(--border); border-radius:12px; cursor:pointer; -webkit-tap-highlight-color:transparent; transition:background .15s ease; }
+  .toggle.on{ background:var(--amber); }
+  .toggle .knob{ position:absolute; top:2px; left:2px; width:20px; height:20px; background:var(--surface); border-radius:50%; transition:left .15s ease, width .12s ease; }
+  .toggle.on .knob{ left:20px; }
+  .toggle:active .knob{ width:24px; }
+  .toggle.on:active .knob{ left:16px; }
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--amber); color:#1A1508; padding:10px 18px; border-radius:6px;
+    font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s; z-index:100;
+    max-width:85vw; text-align:center;
+  }
+  .toast.show{ opacity:1; }
+
+  .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:50; align-items:center; justify-content:center; padding:20px; }
+  .modal-overlay.show{ display:flex; }
+  .modal{ background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; max-width:380px; width:100%; }
+
+  .badge.won{ background:rgba(111,161,132,0.15); color:var(--support); }
+  .badge.lost{ background:rgba(192,106,98,0.15); color:var(--oppose); }
+  .badge.pending{ background:rgba(140,144,148,0.15); color:var(--ink-muted); }
+
+  .log-card{ background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:18px; margin-bottom:12px; cursor:pointer; }
+  .log-card-fixture{ font-size:17px; font-weight:600; margin-top:10px; }
+  .log-card-meta{ font-size:12px; color:var(--ink-muted); margin-top:4px; }
+
+  .detail-modal .modal{ max-width:440px; max-height:82vh; overflow-y:auto; text-align:left; }
+
+  #splash-screen{
+    position:fixed; inset:0; z-index:9999; background:#121314;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:opacity .5s ease, visibility .5s;
+  }
+  #splash-screen.hide{ opacity:0; visibility:hidden; pointer-events:none; }
+  .splash-icon{ width:100px; height:100px; border-radius:22px; margin-bottom:0; animation:splashPulse 1.8s ease-in-out infinite; }
+  @keyframes splashPulse{ 0%,100%{opacity:1} 50%{opacity:0.7} }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+</head>
+<body>
+
+<div id="splash-screen">
+  <img src="icon-512.png" class="splash-icon" alt="">
+</div>
+
+<header>
+  <button class="back-btn" id="back-btn" onclick="wizardBack()">←</button>
+  <h1 id="header-title">Surveyor</h1>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button type="button" class="info-btn" id="header-info-btn" onclick="openInfoModal()">ⓘ</button>
+    <button class="menu-btn" onclick="toggleMenu(true)">☰</button>
+  </div>
+</header>
+
+<div class="menu-overlay" id="menu-overlay" onclick="if(event.target===this) toggleMenu(false)">
+  <div class="menu-panel">
+    <button data-screen="entry" onclick="goScreen('entry')">New Entry</button>
+    <button data-screen="log" onclick="goScreen('log')">Echo Log</button>
+    <button data-screen="reports" onclick="goScreen('reports')">Reports</button>
+    <button data-screen="patterns" onclick="goScreen('patterns')">Patterns</button>
+    <button data-screen="board" onclick="goScreen('board')">Daily Board</button>
+    <button data-screen="bet" onclick="goScreen('bet')">Bet</button>
+    <button data-screen="settings" onclick="goScreen('settings')">Settings</button>
+  </div>
+</div>
+
+<main>
+
+  <!-- ===== ENTRY WIZARD ===== -->
+  <section class="screen active" id="screen-entry">
+
+    <div class="step" data-step="0">
+      <div class="survey-progress">
+        <div class="tick current"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+      </div>
+      <div class="step-label"><span class="step-index">STEP 1/5</span><span class="step-tag">Match</span></div>
+      <div class="card">
+        <div class="chip-row" id="recent-league-chips"></div>
+        <div class="grid2">
+          <div><label>Country</label><input id="f-country" list="country-list" autocomplete="off"><datalist id="country-list"></datalist></div>
+          <div><label>League</label><input id="f-league" list="league-list" autocomplete="off"><datalist id="league-list"></datalist></div>
+        </div>
+        <label>Date</label>
+        <div class="row-between" style="gap:8px;margin-bottom:10px;">
+          <button type="button" class="secondary small" style="flex:1;" onclick="setDateShortcut(0)">Today</button>
+          <button type="button" class="secondary small" style="flex:1;" onclick="setDateShortcut(1)">Tomorrow</button>
+        </div>
+        <input id="f-date" type="date">
+        <label>Kickoff time (optional)</label>
+        <input id="f-time" type="time">
+        <div class="grid2">
+          <div><label>Home Team</label><input id="f-home" list="home-team-list" autocomplete="off"><datalist id="home-team-list"></datalist></div>
+          <div><label>Away Team</label><input id="f-away" list="away-team-list" autocomplete="off"><datalist id="away-team-list"></datalist></div>
+        </div>
+        <div class="checkbox-row"><input type="checkbox" id="f-neutral"><label for="f-neutral">Neutral venue</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="f-cup"><label for="f-cup">Cup / knockout</label></div>
+      </div>
+    </div>
+
+    <div class="step" data-step="1">
+      <div class="survey-progress">
+        <div class="tick done"></div><div class="tick current"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+      </div>
+      <div class="step-label"><span class="step-index">STEP 2/5</span><span class="step-tag">Goals</span></div>
+      <div class="card">
+        <div class="grid2">
+          <div><label>Home Scored (avg)</label><input id="o-hgs" type="number" step="0.01"></div>
+          <div><label>Home Conceded (avg)</label><input id="o-hgc" type="number" step="0.01"></div>
+          <div><label>Away Scored (avg)</label><input id="o-ags" type="number" step="0.01"></div>
+          <div><label>Away Conceded (avg)</label><input id="o-agc" type="number" step="0.01"></div>
+        </div>
+        <label>League Goal Average</label><input id="o-lga" type="number" step="0.01">
+        <div class="checkbox-row" style="margin-top:-4px;"><input type="checkbox" id="o-lga-auto" onchange="toggleLgaAuto()"><label for="o-lga-auto">Calculate from league totals instead</label></div>
+        <div id="lga-auto-fields" style="display:none;">
+          <div class="grid3">
+            <div><label>Total Teams</label><input id="o-lga-teams" type="number" min="1" oninput="calcLGA()"></div>
+            <div><label>Avg Matches Played</label><input id="o-lga-avgmatches" type="number" step="0.1" min="0" oninput="calcLGA()"></div>
+            <div><label>Total Goals Scored</label><input id="o-lga-totalgoals" type="number" min="0" oninput="calcLGA()"></div>
+          </div>
+          <div class="result-sub" id="lga-auto-result" style="margin-bottom:10px;">Enter teams and average matches played.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step="2">
+      <div class="survey-progress">
+        <div class="tick done"></div><div class="tick done"></div><div class="tick current"></div><div class="tick"></div><div class="tick"></div>
+      </div>
+      <div class="step-label"><span class="step-index">STEP 3/5</span><span class="step-tag">Trends</span></div>
+      <div class="card">
+        <label>Sample size (matches observed)</label><input id="o-sample-size" type="number" min="1" value="5">
+        <div class="subhead">Home</div>
+        <div class="grid2">
+          <div><label>Goals scored (total)</label><input id="o-h-scored" type="number" min="0"></div>
+          <div><label>Goals conceded (total)</label><input id="o-h-conceded" type="number" min="0"></div>
+          <div><label>Over 1.5 freq %</label><input id="o-h-over15" type="number" min="0" max="100"></div>
+          <div><label>BTTS freq %</label><input id="o-h-btts" type="number" min="0" max="100"></div>
+        </div>
+        <div class="subhead">Away</div>
+        <div class="grid2">
+          <div><label>Goals scored (total)</label><input id="o-a-scored" type="number" min="0"></div>
+          <div><label>Goals conceded (total)</label><input id="o-a-conceded" type="number" min="0"></div>
+          <div><label>Over 1.5 freq %</label><input id="o-a-over15" type="number" min="0" max="100"></div>
+          <div><label>BTTS freq %</label><input id="o-a-btts" type="number" min="0" max="100"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step="3">
+      <div class="survey-progress">
+        <div class="tick done"></div><div class="tick done"></div><div class="tick done"></div><div class="tick current"></div><div class="tick"></div>
+      </div>
+      <div class="step-label"><span class="step-index">STEP 4/5</span><span class="step-tag">Record &amp; Form</span></div>
+      <div class="card">
+        <div class="subhead">Season record</div>
+        <div class="grid3">
+          <div><label>Home W</label><input id="o-h-w" type="number" min="0"></div>
+          <div><label>Home D</label><input id="o-h-d" type="number" min="0"></div>
+          <div><label>Home L</label><input id="o-h-l" type="number" min="0"></div>
+          <div><label>Away W</label><input id="o-a-w" type="number" min="0"></div>
+          <div><label>Away D</label><input id="o-a-d" type="number" min="0"></div>
+          <div><label>Away L</label><input id="o-a-l" type="number" min="0"></div>
+        </div>
+        <div class="subhead">Last 5 form</div>
+        <div class="grid3">
+          <div><label>Home W</label><input id="o-hf-w" type="number" min="0" max="5"></div>
+          <div><label>Home D</label><input id="o-hf-d" type="number" min="0" max="5"></div>
+          <div><label>Home L</label><input id="o-hf-l" type="number" min="0" max="5"></div>
+          <div><label>Away W</label><input id="o-af-w" type="number" min="0" max="5"></div>
+          <div><label>Away D</label><input id="o-af-d" type="number" min="0" max="5"></div>
+          <div><label>Away L</label><input id="o-af-l" type="number" min="0" max="5"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step="4">
+      <div class="survey-progress">
+        <div class="tick done"></div><div class="tick done"></div><div class="tick done"></div><div class="tick done"></div><div class="tick current"></div>
+      </div>
+      <div class="step-label"><span class="step-index">STEP 5/5</span><span class="step-tag">Notes</span></div>
+      <div class="card">
+        <label>Special observations (optional)</label>
+        <input id="o-special" placeholder="derby, injury, title race...">
+        <label>Home sample opponent strength</label>
+        <select id="o-h-oppstrength">
+          <option value="">Not tracked</option>
+          <option value="Mostly top-half">Mostly top-half</option>
+          <option value="Mixed">Mixed</option>
+          <option value="Mostly bottom-half">Mostly bottom-half</option>
+        </select>
+        <label>Away sample opponent strength</label>
+        <select id="o-a-oppstrength">
+          <option value="">Not tracked</option>
+          <option value="Mostly top-half">Mostly top-half</option>
+          <option value="Mixed">Mixed</option>
+          <option value="Mostly bottom-half">Mostly bottom-half</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="wizard-nav">
+      <button class="secondary" id="wizard-back-btn" onclick="wizardBack()" style="display:none;">Back</button>
+      <button class="primary" id="wizard-next-btn" onclick="wizardNext()">Next</button>
+    </div>
+
+    <!-- Result -->
+    <div class="card" id="result-card" style="display:none; margin-top:16px;">
+      <span class="badge" id="result-badge"></span>
+      <div class="result-sub" id="result-goalenv"></div>
+      <div class="result-market" id="result-primary"></div>
+      <div class="result-sub">Secondary: <span id="result-secondary"></span></div>
+      <div class="why" id="result-why"></div>
+      <div class="result-sub" id="anomaly-banner" style="display:none; color:#B8862E; margin-bottom:8px;"></div>
+      <div class="result-sub" id="sample-floor-note" style="display:none; color:var(--ink-muted); margin-bottom:8px;"></div>
+      <div style="margin-bottom:10px;">
+        <button class="secondary" onclick="runAiAnomalyCheck()" style="font-size:12px;">Ask AI to double-check this entry</button>
+        <div class="result-sub" id="ai-anomaly-note" style="margin-top:6px;"></div>
+      </div>
+      <details>
+        <summary>Evidence &amp; reasoning</summary>
+        <div class="result-sub" style="margin-top:8px;">EGES <span id="result-eges" class="mono"></span> · Lean <span id="result-lean" class="mono"></span> · Points <span id="result-points" class="mono"></span></div>
+        <div class="result-sub" id="opp-strength-note" style="display:none;margin-bottom:6px;font-style:italic;"></div>
+        <ul class="evidence-list" id="evidence-support"></ul>
+        <ul class="evidence-list" id="evidence-oppose"></ul>
+      </details>
+      <div class="wizard-nav" style="margin-top:14px;">
+        <button class="secondary" onclick="discardResult()">Discard</button>
+        <button class="primary" onclick="saveToEcho()">Save to Echo</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ECHO LOG ===== -->
+  <section class="screen" id="screen-log">
+    <div class="card">
+      <div class="row-between"><span class="mono result-sub" id="log-count"></span></div>
+      <div class="filter-row" id="log-filter-row">
+        <button class="filter-chip active" data-filter="all" onclick="setLogFilter('all')">All</button>
+        <button class="filter-chip" data-filter="pending" onclick="setLogFilter('pending')">Pending</button>
+        <button class="filter-chip" data-filter="resolved" onclick="setLogFilter('resolved')">Resolved</button>
+      </div>
+      <div id="log-list" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <!-- ===== REPORTS ===== -->
+  <section class="screen" id="screen-reports">
+    <div class="card" id="stale-alert-card" style="display:none;"></div>
+    <div class="card" id="reports-summary-card">
+      <div class="result-market" id="reports-summary-rate" style="font-size:26px;"></div>
+      <div class="result-sub" id="reports-summary-sub"></div>
+      <button class="secondary full" style="margin-top:12px;" onclick="exportReportsCSV()">Export Reports (CSV)</button>
+    </div>
+    <div class="card"><h2 style="font-size:15px;">Market</h2><table id="report-market"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Secondary Market</h2><table id="report-secondary"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Goal Environment</h2><table id="report-goalenv"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Directional Lean</h2><div class="result-sub" style="margin-bottom:8px;">Did the favored side actually win? (Neutral excluded — no side favored)</div><table id="report-lean"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Confidence</h2><table id="report-confidence"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Miss Reasons</h2><div id="report-failuretag"></div></div>
+    <div class="card"><h2 style="font-size:15px;">League Goal Average Trend</h2><div id="report-lga-trend"></div></div>
+    <div class="card"><h2 style="font-size:15px;">Betting Performance</h2><div id="report-betting-perf"></div></div>
+    <div class="card"><h2 style="font-size:15px;">League</h2><table id="report-league"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Signal Agreement</h2><div class="result-sub" style="margin-bottom:8px;">Primary market win rate when season average and recent trend agree vs. disagree</div><table id="report-conflict"></table></div>
+    <div class="card"><h2 style="font-size:15px;">Threshold Calibration</h2><div class="result-sub" style="margin-bottom:8px;">Maturity of each Evidence Threshold, based on how many resolved fixtures actually tested it</div><div id="report-thresholds"></div></div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">AI Calibration Review</h2>
+      <div class="result-sub" style="margin-bottom:8px;">Drafts a plain-language summary of what your Echo data currently shows. It never recommends threshold changes — only you decide what to adjust.</div>
+      <button class="primary" onclick="generateAiReview()" style="font-size:13px;">Generate Review</button>
+      <div class="result-sub" id="ai-review-output" style="margin-top:10px; white-space:pre-wrap;"></div>
+      <div class="row-between" id="ai-review-actions" style="display:none; gap:10px; margin-top:8px;">
+        <button class="secondary" onclick="discardAiReview()">Discard</button>
+        <button class="primary" onclick="saveAiReviewNote()">Save Note</button>
+      </div>
+      <div id="ai-review-history" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">Ask About Your Echo Log</h2>
+      <div class="result-sub" style="margin-bottom:8px;">Answers are generated only from your own logged fixtures below — never from outside knowledge about teams or leagues.</div>
+      <textarea id="ai-query-input" rows="2" placeholder="e.g. How did High confidence Over 1.5 picks perform in the EPL?"></textarea>
+      <button class="primary" onclick="runAiQuery()" style="font-size:13px;">Ask</button>
+      <div id="ai-query-log" style="margin-top:12px;"></div>
+    </div>
+  </section>
+
+  <!-- ===== PATTERNS ===== -->
+  <section class="screen" id="screen-patterns">
+    <div class="card">
+      <h2 style="font-size:15px;">Log a pattern</h2>
+      <label>League / Competition</label><input id="p-league">
+      <label>Observation</label><input id="p-obs">
+      <label>Sample size</label><input id="p-sample" type="number" min="0">
+      <label>Notes</label><input id="p-notes">
+      <button class="primary full" onclick="addPattern()">Add Pattern</button>
+    </div>
+    <div id="pattern-list"></div>
+  </section>
+
+  <!-- ===== DAILY BOARD ===== -->
+  <section class="screen" id="screen-board">
+    <div class="card">
+      <div class="filter-row" style="margin-bottom:10px;">
+        <button class="filter-chip active" id="board-mode-date" onclick="setBoardMode('date')">By Date</button>
+        <button class="filter-chip" id="board-mode-all" onclick="setBoardMode('all')">All Fixtures</button>
+      </div>
+      <div id="board-date-picker">
+        <label>Date</label>
+        <input id="board-date" type="date">
+      </div>
+      <button class="secondary full" onclick="renderBoard()">Load Matches</button>
+    </div>
+    <div id="board-container"></div>
+    <button class="primary full" id="board-share-btn" style="display:none;margin-top:14px;" onclick="shareBoardImage()">Share Board as Image</button>
+  </section>
+
+  <!-- ===== BET ===== -->
+  <section class="screen" id="screen-bet">
+    <div class="card" id="stake-meter-card">
+      <div class="row-between"><span style="font-size:13px;">Staked this week</span><span class="mono result-sub" id="stake-meter-text"></span></div>
+      <div style="background:var(--border); border-radius:4px; height:8px; margin-top:8px; overflow:hidden;">
+        <div id="stake-meter-bar" style="height:100%; background:var(--amber); width:0%; transition:width .2s ease, background .2s ease;"></div>
+      </div>
+      <div class="result-sub" id="stake-meter-warning" style="display:none; color:var(--oppose); margin-top:8px;"></div>
+    </div>
+
+    <div class="card" id="correlation-warning" style="display:none; color:var(--oppose);"></div>
+
+    <div class="filter-row">
+      <button class="filter-chip active" id="bet-tab-ai" onclick="setBetTab('ai')">AI Suggested</button>
+      <button class="filter-chip" id="bet-tab-manual" onclick="setBetTab('manual')">My Picks</button>
+    </div>
+
+    <div id="bet-panel-ai">
+      <div class="card">
+        <div class="result-sub" style="margin-bottom:8px;">Ranked by evidence, not Confidence label. Capped at <span id="ai-cap-label"></span> picks.</div>
+        <button class="primary full" onclick="generateAiPicks()" id="generate-ai-picks-btn">Generate AI Picks</button>
+        <div id="ai-picks-status" class="result-sub" style="margin-top:8px;"></div>
+      </div>
+      <div id="ai-picks-list"></div>
+    </div>
+
+    <div id="bet-panel-manual" style="display:none;">
+      <div class="card">
+        <div class="result-sub">All pending fixtures. Add any — no cap.</div>
+      </div>
+      <div id="manual-picks-list"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">Bet Slip Summary</h2>
+      <div class="result-sub" style="margin-bottom:8px;">Copy and enter yourself — Surveyor doesn't place bets.</div>
+      <div id="bet-slip-output" class="result-sub" style="white-space:pre-wrap; margin-bottom:10px;"></div>
+      <button class="secondary full" onclick="copyBetSlip()">Copy Bet Slip</button>
+    </div>
+  </section>
+
+  <!-- ===== SETTINGS ===== -->
+  <section class="screen" id="screen-settings">
+    <div class="card">
+      <h2 style="font-size:15px;">Preferences</h2>
+      <div class="toggle-row">
+        <span>Light theme</span>
+        <div class="toggle" id="theme-toggle" onclick="toggleTheme()"><div class="knob"></div></div>
+      </div>
+      <div class="toggle-row">
+        <span>Show reasoning expanded by default</span>
+        <div class="toggle" id="expand-toggle" onclick="togglePref('expandReasoning')"><div class="knob"></div></div>
+      </div>
+      <div class="toggle-row">
+        <span>Confirm before discarding an entry</span>
+        <div class="toggle" id="confirm-toggle" onclick="togglePref('confirmDiscard')"><div class="knob"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">Evidence Thresholds</h2>
+      <div class="subhead row-between">Over 1.5 frequency % <span class="badge observed" id="tb-over15Freq">Observed · 0</span></div>
+      <div class="grid2">
+        <div><label>Support ≥</label><input id="s-over15Support" type="number"></div>
+        <div><label>Oppose ≤</label><input id="s-over15Oppose" type="number"></div>
+      </div>
+      <div class="subhead row-between">BTTS frequency % <span class="badge observed" id="tb-bttsFreq">Observed · 0</span></div>
+      <div class="grid2">
+        <div><label>Support ≥</label><input id="s-bttsSupport" type="number"></div>
+        <div><label>Oppose ≤</label><input id="s-bttsOppose" type="number"></div>
+      </div>
+      <div class="subhead row-between">Scored / conceded rate (goals per match) <span class="badge observed" id="tb-scoredRate">Observed · 0</span></div>
+      <div class="grid2">
+        <div><label>Support ≥</label><input id="s-scoredRateSupport" type="number" step="0.1"></div>
+        <div><label>Oppose ≤</label><input id="s-scoredRateOppose" type="number" step="0.1"></div>
+      </div>
+      <div class="subhead row-between">League goal average <span class="badge observed" id="tb-lga">Observed · 0</span></div>
+      <div class="grid2">
+        <div><label>Support ≥</label><input id="s-lgaSupport" type="number" step="0.1"></div>
+        <div><label>Oppose ≤</label><input id="s-lgaOppose" type="number" step="0.1"></div>
+      </div>
+      <div class="subhead">Win-rate gap for a lean point</div>
+      <input id="s-winRateGap" type="number" step="0.01">
+      <div class="subhead">Minimum sample size</div>
+      <input id="s-minSampleSize" type="number" min="1" step="1">
+      <div class="result-sub" style="margin-top:6px;">Below floor: evidence excluded, not weighted. Badges: Observed &lt;20 · Testing 20+ · Provisional 50+ · Validated 100+.</div>
+      <div class="row-between" style="gap:10px;">
+        <button class="secondary" onclick="resetSettings()">Reset</button>
+        <button class="primary" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">Change History</h2>
+      <div id="settings-history-list"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">AI Assistant (Gemini)</h2>
+      <div class="result-sub" style="margin-bottom:8px;">Describes, flags, and answers questions — never sets thresholds or picks markets. Stored on-device only.</div>
+      <label>Gemini API Key</label><input id="s-geminiKey" type="password" placeholder="Paste your key" autocomplete="off">
+      <label>Model ID</label><input id="s-geminiModel" type="text" placeholder="gemini-2.5-flash">
+      <div class="row-between" style="gap:10px;">
+        <button class="secondary" onclick="clearAiSettings()">Clear Key</button>
+        <button class="primary" onclick="saveAiSettings()">Save</button>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <button class="secondary full" id="model-test-btn" onclick="findWorkingModels()">Find Working Models</button>
+        <div id="model-test-output" style="margin-top:10px;font-size:12.5px;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">Staking &amp; Limits</h2>
+      <div class="result-sub" style="margin-bottom:8px;">AI-pick cap is enforced. Stake limit is a warning, not a lock.</div>
+      <label>Max AI-suggested picks per day</label><input id="s-maxAiPicks" type="number" min="1">
+      <label>Max stake per fixture (₦)</label><input id="s-maxStakePerFixture" type="number" min="0" step="1">
+      <label>Weekly stake limit (₦)</label><input id="s-weeklyStakeLimit" type="number" min="0" step="1">
+      <button class="primary full" onclick="saveStakingSettings()">Save</button>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">Odds API (Optional)</h2>
+      <div class="result-sub" style="margin-bottom:8px;">Not needed for Bet tab links. Free tier is NBA/MLB only — football needs their paid tier.</div>
+      <label>API Key</label><input id="s-oddsApiKey" type="password" placeholder="Paste your key" autocomplete="off">
+      <button class="primary full" onclick="saveOddsSettings()" style="margin-bottom:10px;">Save</button>
+      <button class="secondary full" onclick="fetchOddsSportsList()">Refresh Available Competitions</button>
+      <div class="result-sub" id="odds-sports-status" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">Cloud Sync (Firebase)</h2>
+      <div class="result-sub" style="margin-bottom:8px;">Manual backup/restore to your own Firebase project. Set Firestore rules to require auth — this is your data, on your project.</div>
+      <label>Firebase Config (paste the JSON object)</label>
+      <textarea id="s-firebaseConfig" rows="4" placeholder='{"apiKey":"...","authDomain":"...","projectId":"..."}'></textarea>
+      <button class="primary full" onclick="saveFirebaseConfig()" style="margin-bottom:10px;">Save Config</button>
+      <div class="result-sub" id="firebase-status" style="margin-bottom:10px;">Not configured.</div>
+      <div id="firebase-auth-section" style="display:none;">
+        <button class="primary full" onclick="signInGoogleFirebase()" style="margin-bottom:10px;">Sign in with Google</button>
+        <button class="secondary full" onclick="signOutFirebase()" style="margin-bottom:14px;">Sign Out</button>
+        <div class="row-between" style="gap:10px;">
+          <button class="secondary" style="flex:1;" onclick="pushToCloud()">Backup to Cloud</button>
+          <button class="secondary" style="flex:1;" onclick="pullFromCloud()">Restore from Cloud</button>
+        </div>
+        <div class="result-sub" id="firebase-sync-status" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:15px;">Backup &amp; Restore</h2>
+      <div class="row-between" style="gap:10px;">
+        <button class="secondary" style="flex:1;" onclick="exportData()">Backup</button>
+        <button class="secondary" style="flex:1;" onclick="document.getElementById('import-file').click()">Restore</button>
+      </div>
+      <input type="file" id="import-file" accept="application/json" style="display:none" onchange="importData(event)">
+      <button class="danger secondary full" style="margin-top:10px;" onclick="confirmClearAll()">Clear All Data</button>
+    </div>
+
+    <div class="card" style="text-align:center;">
+      <img src="icon-192.png" style="width:40px;height:40px;border-radius:9px;margin-bottom:10px;" alt="">
+      <div class="mono" style="font-size:10px;letter-spacing:0.2em;color:var(--ink-muted);">NOVEN EMPIRE</div>
+      <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.1em;margin-top:4px;">SURVEYOR</div>
+      <div class="mono" style="font-size:10px;color:var(--ink-muted);margin-top:4px;">NE·004 — SHADOW SYSTEM v1.1</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-top:12px;font-style:italic;">Where ambition becomes architecture.</div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="confirm-modal-overlay" onclick="if(event.target===this) closeConfirmModal()">
+  <div class="modal">
+    <h2 id="confirm-title" style="font-size:16px;margin-bottom:8px;"></h2>
+    <p id="confirm-message" style="font-size:13px;color:var(--ink-muted);margin-bottom:16px;"></p>
+    <div class="row-between" style="gap:10px;">
+      <button class="secondary" style="flex:1;" onclick="closeConfirmModal()">Cancel</button>
+      <button class="secondary" id="confirm-yes-btn" style="flex:1;" onclick="confirmYesAction()"></button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="info-modal-overlay" onclick="if(event.target===this) closeInfoModal()">
+  <div class="modal" style="text-align:center;">
+    <img src="icon-192.png" style="width:44px;height:44px;border-radius:10px;margin-bottom:10px;" alt="">
+    <div class="mono" style="font-size:10px;letter-spacing:0.2em;color:var(--ink-muted);">NOVEN EMPIRE</div>
+    <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;letter-spacing:0.1em;margin-top:4px;">SURVEYOR</div>
+    <div class="mono" style="font-size:10px;color:var(--ink-muted);margin-top:4px;">NE·004 — SHADOW SYSTEM v1.1</div>
+    <div style="font-size:12px;color:var(--ink-muted);margin-top:12px;font-style:italic;">Where ambition becomes architecture.</div>
+    <button class="secondary full" style="margin-top:16px;" onclick="closeInfoModal()">Close</button>
+  </div>
+</div>
+
+<div class="modal-overlay detail-modal" id="detail-modal-overlay" onclick="if(event.target===this) closeDetailModal()">
+  <div class="modal">
+    <div class="row-between">
+      <h2 id="detail-title" style="font-size:17px;"></h2>
+      <button class="secondary small" onclick="closeDetailModal()">Close</button>
+    </div>
+    <div class="result-sub" id="detail-meta" style="margin:6px 0 14px;"></div>
+
+    <span class="badge" id="detail-confidence-badge"></span>
+    <div class="result-sub" style="margin-top:8px;">Goal Env: <span id="detail-goalenv" class="mono"></span></div>
+    <div class="result-sub">Lean: <span id="detail-lean" class="mono"></span></div>
+
+    <div class="result-market" id="detail-primary" style="font-size:19px;"></div>
+    <div class="result-sub">Secondary: <span id="detail-secondary"></span></div>
+    <div class="why" id="detail-why"></div>
+
+    <details>
+      <summary>Evidence &amp; reasoning</summary>
+      <div class="result-sub" style="margin-top:8px;">EGES <span id="detail-eges" class="mono"></span> · Points <span id="detail-points" class="mono"></span></div>
+      <ul class="evidence-list" id="detail-evidence-support"></ul>
+      <ul class="evidence-list" id="detail-evidence-oppose"></ul>
+    </details>
+
+    <div id="detail-result-actions" style="margin-top:16px;"></div>
+    <button class="secondary full" style="margin-top:10px;" onclick="shareFixture(currentDetailId)">Share Pick</button>
+    <button class="danger secondary full" style="margin-top:10px;" onclick="deleteFixtureFromDetail()">Delete Fixture</button>
+  </div>
+</div>
+
+<script>
+// ============ STATE ============
+const DEFAULT_SETTINGS = {
+  over15Support: 65, over15Oppose: 40,
+  bttsSupport: 60, bttsOppose: 35,
+  scoredRateSupport: 1.4, scoredRateOppose: 0.6,
+  lgaSupport: 2.7, lgaOppose: 2.3,
+  winRateGap: 0.15,
+  geminiApiKey: '', geminiModel: 'gemini-2.5-flash',
+  maxAiPicks: 5, maxStakePerFixture: 500, weeklyStakeLimit: 5000,
+  oddsApiKey: '',
+  minSampleSize: 5, staleDays: 7,
+  firebaseConfig: ''
+};
+const DEFAULT_PREFS = { theme:'dark', expandReasoning:false, confirmDiscard:true };
+
+let fixtures = loadJSON('surveyor_fixtures', []);
+let patterns = loadJSON('surveyor_patterns', []);
+let settings = {...DEFAULT_SETTINGS, ...(loadJSON('surveyor_settings', {}) || {})};
+let prefs = {...DEFAULT_PREFS, ...(loadJSON('surveyor_prefs', {}) || {})};
+let reviewNotes = loadJSON('surveyor_reviews', []);
+let aiQueryLog = loadJSON('surveyor_ai_queries', []);
+let lgaHistory = loadJSON('surveyor_lga_history', []);
+let settingsHistory = loadJSON('surveyor_settings_history', []);
+let lastEvaluation = null;
+let currentStep = 0;
+const TOTAL_STEPS = 5;
+
+function loadJSON(key, fallback){
+  try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+  catch(e){ return fallback; }
+}
+// Enables CSS :active states to fire reliably on tap across mobile browsers
+// (iOS Safari otherwise needs a touch listener present to recognize :active).
+document.addEventListener('touchstart', function(){}, {passive:true});
+function persist(){
+  localStorage.setItem('surveyor_fixtures', JSON.stringify(fixtures));
+  localStorage.setItem('surveyor_patterns', JSON.stringify(patterns));
+  localStorage.setItem('surveyor_settings', JSON.stringify(settings));
+  localStorage.setItem('surveyor_prefs', JSON.stringify(prefs));
+  localStorage.setItem('surveyor_reviews', JSON.stringify(reviewNotes));
+  localStorage.setItem('surveyor_ai_queries', JSON.stringify(aiQueryLog));
+  localStorage.setItem('surveyor_lga_history', JSON.stringify(lgaHistory));
+  localStorage.setItem('surveyor_settings_history', JSON.stringify(settingsHistory));
+}
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+// ============ NAV ============
+function toggleMenu(open){ document.getElementById('menu-overlay').classList.toggle('show', open); }
+function goScreen(name){
+  toggleMenu(false);
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.querySelectorAll('.menu-panel button').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
+  document.getElementById('header-title').textContent =
+    {entry:'Surveyor', log:'Echo Log', reports:'Reports', patterns:'Patterns', settings:'Settings', board:'Daily Board'}[name];
+  document.getElementById('header-info-btn').style.display = name==='entry' ? 'block' : 'none';
+  document.getElementById('back-btn').classList.remove('show');
+  if(name==='log') renderLog();
+  if(name==='reports') renderReports();
+  if(name==='patterns') renderPatterns();
+  if(name==='settings'){ refreshThresholdBadges(); renderSettingsHistory(); }
+  if(name==='bet') renderBetScreen();
+  if(name==='entry') syncWizardBackBtn();
+  if(name==='board'){
+    const dateInput = document.getElementById('board-date');
+    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+    renderBoard();
+  }
+}
+
+// ============ WIZARD ============
+function showStep(i){
+  document.querySelectorAll('.step').forEach(s=>s.style.display='none');
+  document.querySelector(`.step[data-step="${i}"]`).style.display='block';
+  document.getElementById('wizard-back-btn').style.display = i===0 ? 'none' : 'block';
+  document.getElementById('wizard-next-btn').textContent = i===TOTAL_STEPS-1 ? 'Evaluate Fixture' : 'Next';
+  syncWizardBackBtn();
+}
+function syncWizardBackBtn(){
+  document.getElementById('back-btn').classList.toggle('show', currentStep>0 && document.getElementById('screen-entry').classList.contains('active') && document.getElementById('result-card').style.display==='none');
+}
+function wizardNext(){
+  if(currentStep===0 && (!document.getElementById('f-home').value.trim() || !document.getElementById('f-away').value.trim())){
+    toast('Home and away team required'); return;
+  }
+  if(currentStep < TOTAL_STEPS-1){
+    currentStep++; showStep(currentStep);
+  } else {
+    evaluateFixture();
+  }
+}
+function wizardBack(){
+  if(document.getElementById('result-card').style.display==='block'){ return; }
+  if(currentStep>0){ currentStep--; showStep(currentStep); }
+}
+function resetWizard(){
+  currentStep = 0;
+  document.querySelectorAll('#screen-entry input').forEach(i=>{ if(i.type!=='checkbox') i.value=''; else i.checked=false; });
+  document.getElementById('o-sample-size').value = '5';
+  document.getElementById('lga-auto-fields').style.display = 'none';
+  document.getElementById('o-lga').readOnly = false;
+  document.getElementById('lga-auto-result').textContent = 'Enter teams and average matches played.';
+  document.getElementById('result-card').style.display='none';
+  document.querySelectorAll('.step').forEach(s=>s.style.display='');
+  document.querySelector('.wizard-nav').style.display='flex';
+  showStep(0);
+}
+
+// ============ LEAGUE GOAL AVERAGE AUTO-CALC ============
+function toggleLgaAuto(){
+  const on = document.getElementById('o-lga-auto').checked;
+  document.getElementById('lga-auto-fields').style.display = on ? 'block' : 'none';
+  document.getElementById('o-lga').readOnly = on;
+  if(on) calcLGA();
+  else document.getElementById('lga-auto-result').textContent = 'Enter teams and average matches played.';
+}
+function calcLGA(){
+  const teams = num('o-lga-teams'), avgMatches = num('o-lga-avgmatches'), totalGoals = num('o-lga-totalgoals');
+  const resultEl = document.getElementById('lga-auto-result');
+  const leagueMatches = (teams * avgMatches) / 2;
+  if(!teams || !avgMatches || leagueMatches<=0){
+    resultEl.textContent = 'Enter teams and average matches played.';
+    return;
+  }
+  const lga = totalGoals / leagueMatches;
+  document.getElementById('o-lga').value = lga.toFixed(2);
+  resultEl.textContent = `League matches played: ${leagueMatches.toFixed(1)} · League Goal Average: ${lga.toFixed(2)}`;
+}
+
+// ============ HELPERS ============
+function num(id){ const v=document.getElementById(id).value; return v===''?0:parseFloat(v); }
+function str(id){ return document.getElementById(id).value.trim(); }
+function checked(id){ return document.getElementById(id).checked; }
+function evalMetric(value, o){
+  let direction=null;
+  if(o.higherIsSupport){
+    if(value>=o.supportAt) direction='support';
+    else if(value<=o.opposeAt) direction='oppose';
+  } else {
+    if(value<=o.supportAt) direction='support';
+    else if(value>=o.opposeAt) direction='oppose';
+  }
+  return direction ? {label:o.label, direction, market:o.market, metric:o.metric} : null;
+}
+
+function openInfoModal(){ document.getElementById('info-modal-overlay').classList.add('show'); }
+function closeInfoModal(){ document.getElementById('info-modal-overlay').classList.remove('show'); }
+
+// ============ DAILY BOARD ============
+function shortDate(dateStr){
+  if(!dateStr) return '—';
+  const d = new Date(dateStr+'T00:00:00');
+  return d.toLocaleString('en-US', {month:'short', day:'numeric'});
+}
+function formatBoardDate(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  const day = d.getDate();
+  const month = d.toLocaleString('en-US', {month:'long'});
+  const year = d.getFullYear();
+  const suffix = (day%10===1 && day!==11) ? 'st' : (day%10===2 && day!==12) ? 'nd' : (day%10===3 && day!==13) ? 'rd' : 'th';
+  return `${day}${suffix}, ${month} ${year}`;
+}
+let boardMode = 'date';
+function setBoardMode(mode){
+  boardMode = mode;
+  document.getElementById('board-mode-date').classList.toggle('active', mode==='date');
+  document.getElementById('board-mode-all').classList.toggle('active', mode==='all');
+  document.getElementById('board-date-picker').style.display = mode==='date' ? 'block' : 'none';
+}
+function renderBoard(){
+  const container = document.getElementById('board-container');
+  const shareBtn = document.getElementById('board-share-btn');
+  let dayFixtures, headerLabel;
+
+  if(boardMode==='all'){
+    dayFixtures = [...fixtures].sort((a,b)=>{
+      const ad=a.date||'', bd=b.date||'';
+      return ad.localeCompare(bd) || (a.time||'').localeCompare(b.time||'');
+    });
+    headerLabel = `All Fixtures (${dayFixtures.length})`;
+  } else {
+    const dateStr = document.getElementById('board-date').value;
+    if(!dateStr){ toast('Pick a date first'); return; }
+    dayFixtures = fixtures
+      .filter(f=>f.date===dateStr)
+      .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+    headerLabel = formatBoardDate(dateStr);
+  }
+
+  if(dayFixtures.length===0){
+    container.innerHTML = `<div class="empty">No fixtures ${boardMode==='all' ? 'logged yet' : 'for this date'}.</div>`;
+    shareBtn.style.display = 'none';
+    return;
+  }
+  const rows = dayFixtures.map((fx,i)=>{
+    let resultCell;
+    if(fx.result.entered){
+      const icon = fx.result.primaryHit
+        ? '<span class="board-status hit">✓</span>'
+        : '<span class="board-status miss">✕</span>';
+      resultCell = `${fx.result.homeScore}–${fx.result.awayScore} ${icon}`;
+    } else {
+      resultCell = '<span class="board-status pending">·</span>';
+    }
+    const timeCol = boardMode==='all'
+      ? `${shortDate(fx.date)}${fx.time ? '<br>'+fx.time : ''}`
+      : (fx.time || '—');
+    return `<tr class="${i%2 ? 'board-row-alt' : ''}">
+      <td>${timeCol}</td>
+      <td>${fx.home} vs ${fx.away}</td>
+      <td>${fx.primary}</td>
+      <td>${resultCell}</td>
+      <td><span class="board-confidence ${fx.confidence.toLowerCase()}">${fx.confidence}</span></td>
+    </tr>`;
+  }).join('');
+  container.innerHTML = `
+    <div id="board-capture" class="board-capture">
+      <div class="board-header">
+        <div class="board-date">${headerLabel}</div>
+        <div class="board-brand">SURVEYOR</div>
+      </div>
+      <table class="board-table">
+        <thead><tr><th>${boardMode==='all' ? 'Date' : 'Time'}</th><th>Event</th><th>Prediction</th><th>Result</th><th>Confidence</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="board-footer">Noven Empire · Shadow System</div>
+    </div>`;
+  shareBtn.style.display = 'block';
+}
+function shareBoardImage(){
+  const node = document.getElementById('board-capture');
+  if(!node){ toast('Load a date first'); return; }
+  if(typeof html2canvas === 'undefined'){ toast('Image export needs an internet connection'); return; }
+  html2canvas(node, {backgroundColor:null, scale:2}).then(canvas=>{
+    canvas.toBlob(blob=>{
+      if(!blob){ toast('Could not generate image'); return; }
+      const suffix = boardMode==='all' ? 'full-history' : document.getElementById('board-date').value;
+      const file = new File([blob], `surveyor-board-${suffix}.png`, {type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:'Surveyor Board'}).catch(()=>{});
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = file.name; a.click();
+        URL.revokeObjectURL(url);
+        toast('Image downloaded');
+      }
+    }, 'image/png');
+  }).catch(()=>toast('Could not generate image'));
+}
+
+function computeConflict(goalEnv, supportCount, opposeCount){
+  const net = supportCount - opposeCount;
+  if((goalEnv==='G4'||goalEnv==='G5') && net<=-2) return true;
+  if((goalEnv==='G1'||goalEnv==='G2') && net>=2) return true;
+  return false;
+}
+
+// ============ EVALUATION ENGINE ============
+function evaluateFixture(){
+  const country=str('f-country'), league=str('f-league'), date=str('f-date'), time=str('f-time'), home=str('f-home'), away=str('f-away');
+  const sampleSize = num('o-sample-size') || 5;
+
+  const obs = {
+    hgs:num('o-hgs'), hgc:num('o-hgc'), ags:num('o-ags'), agc:num('o-agc'), lga:num('o-lga'),
+    hScored:num('o-h-scored'), hConceded:num('o-h-conceded'), hOver15:num('o-h-over15'), hBtts:num('o-h-btts'),
+    aScored:num('o-a-scored'), aConceded:num('o-a-conceded'), aOver15:num('o-a-over15'), aBtts:num('o-a-btts'),
+    sampleSize: num('o-sample-size') || 5,
+    rawSampleSize: num('o-sample-size'),
+    hW:num('o-h-w'), hD:num('o-h-d'), hL:num('o-h-l'), aW:num('o-a-w'), aD:num('o-a-d'), aL:num('o-a-l'),
+    hfW:num('o-hf-w'), hfD:num('o-hf-d'), hfL:num('o-hf-l'), afW:num('o-af-w'), afD:num('o-af-d'), afL:num('o-af-l'),
+    special:str('o-special'),
+    hOppStrength: str('o-h-oppstrength'), aOppStrength: str('o-a-oppstrength')
+  };
+
+  const eges = (obs.hgs+obs.ags+obs.hgc+obs.agc)/2;
+  const anomalies = runAnomalyChecks(obs);
+  let goalEnv;
+  if(eges<2.0) goalEnv='G1'; else if(eges<2.5) goalEnv='G2'; else if(eges<3.0) goalEnv='G3';
+  else if(eges<3.5) goalEnv='G4'; else goalEnv='G5';
+  const goalEnvLabels={G1:'Very Low Goals',G2:'Low Goals',G3:'Balanced Goals',G4:'High Goals',G5:'Extreme Goals'};
+
+  const evidence=[];
+  const sampleSizeOk = obs.rawSampleSize >= settings.minSampleSize;
+  [
+    evalMetric(obs.hOver15,{supportAt:settings.over15Support,opposeAt:settings.over15Oppose,higherIsSupport:true,label:`Home Over 1.5 freq ${obs.hOver15}%`,market:'over15',metric:'over15Freq'}),
+    evalMetric(obs.aOver15,{supportAt:settings.over15Support,opposeAt:settings.over15Oppose,higherIsSupport:true,label:`Away Over 1.5 freq ${obs.aOver15}%`,market:'over15',metric:'over15Freq'}),
+    evalMetric(obs.hBtts,{supportAt:settings.bttsSupport,opposeAt:settings.bttsOppose,higherIsSupport:true,label:`Home BTTS freq ${obs.hBtts}%`,market:'btts',metric:'bttsFreq'}),
+    evalMetric(obs.aBtts,{supportAt:settings.bttsSupport,opposeAt:settings.bttsOppose,higherIsSupport:true,label:`Away BTTS freq ${obs.aBtts}%`,market:'btts',metric:'bttsFreq'}),
+    evalMetric(obs.lga,{supportAt:settings.lgaSupport,opposeAt:settings.lgaOppose,higherIsSupport:true,label:`League goal average ${obs.lga}`,market:'over15',metric:'lga'}),
+    sampleSizeOk ? evalMetric(obs.hScored/obs.sampleSize,{supportAt:settings.scoredRateSupport,opposeAt:settings.scoredRateOppose,higherIsSupport:true,label:`Home scored ${obs.hScored} goals in ${obs.sampleSize} matches (${(obs.hScored/obs.sampleSize).toFixed(2)}/match)`,market:'over15',metric:'scoredRate'}) : null,
+    sampleSizeOk ? evalMetric(obs.aScored/obs.sampleSize,{supportAt:settings.scoredRateSupport,opposeAt:settings.scoredRateOppose,higherIsSupport:true,label:`Away scored ${obs.aScored} goals in ${obs.sampleSize} matches (${(obs.aScored/obs.sampleSize).toFixed(2)}/match)`,market:'over15',metric:'scoredRate'}) : null,
+    sampleSizeOk ? evalMetric(obs.hConceded/obs.sampleSize,{supportAt:settings.scoredRateSupport,opposeAt:settings.scoredRateOppose,higherIsSupport:true,label:`Home conceded ${obs.hConceded} goals in ${obs.sampleSize} matches (${(obs.hConceded/obs.sampleSize).toFixed(2)}/match)`,market:'btts',metric:'scoredRate'}) : null,
+    sampleSizeOk ? evalMetric(obs.aConceded/obs.sampleSize,{supportAt:settings.scoredRateSupport,opposeAt:settings.scoredRateOppose,higherIsSupport:true,label:`Away conceded ${obs.aConceded} goals in ${obs.sampleSize} matches (${(obs.aConceded/obs.sampleSize).toFixed(2)}/match)`,market:'btts',metric:'scoredRate'}) : null,
+  ].forEach(c=>{ if(c) evidence.push(c); });
+
+  const supportCount=evidence.filter(e=>e.direction==='support').length;
+  const opposeCount=evidence.filter(e=>e.direction==='oppose').length;
+
+  let confidence;
+  if(supportCount>=5 && opposeCount<=2) confidence='High';
+  else if(opposeCount>supportCount) confidence='Low';
+  else if(supportCount>=3) confidence='Medium';
+  else confidence='Low';
+
+  let homePts=0, awayPts=0;
+  const homeWinRate=(obs.hW+obs.hD+obs.hL)>0 ? obs.hW/(obs.hW+obs.hD+obs.hL) : 0;
+  const awayWinRate=(obs.aW+obs.aD+obs.aL)>0 ? obs.aW/(obs.aW+obs.aD+obs.aL) : 0;
+  if(homeWinRate-awayWinRate>settings.winRateGap) homePts++; else if(awayWinRate-homeWinRate>settings.winRateGap) awayPts++;
+  if(obs.hfW>obs.afW) homePts++; else if(obs.afW>obs.hfW) awayPts++;
+  if(obs.hScored>obs.aScored) homePts++; else if(obs.aScored>obs.hScored) awayPts++;
+  if(obs.hConceded<obs.aConceded) homePts++; else if(obs.aConceded<obs.hConceded) awayPts++;
+
+  const diff=homePts-awayPts;
+  let lean, leanLabel;
+  if(diff>=3){lean='D1';leanLabel='Strong Home';} else if(diff>=1){lean='D2';leanLabel='Lean Home';}
+  else if(diff===0){lean='D3';leanLabel='Neutral';} else if(diff>=-2){lean='D4';leanLabel='Lean Away';}
+  else {lean='D5';leanLabel='Strong Away';}
+
+  const netGoalSignal = supportCount - opposeCount;
+
+  const bttsSupport=evidence.filter(e=>e.market==='btts'&&e.direction==='support').length;
+  const bttsOppose=evidence.filter(e=>e.market==='btts'&&e.direction==='oppose').length;
+  let primary, secondary, why;
+  const conflict = computeConflict(goalEnv, supportCount, opposeCount);
+  if(goalEnv==='G4'||goalEnv==='G5'){
+    primary='Over 1.5 Goals'; secondary=bttsSupport>bttsOppose?'BTTS':'Over 2.5 Goals';
+    why = conflict
+      ? `Season average points to ${goalEnvLabels[goalEnv].toLowerCase()} (EGES ${eges.toFixed(2)}), but recent trend evidence leans toward fewer goals (${supportCount} supporting / ${opposeCount} opposing) — signals conflict.`
+      : `${goalEnvLabels[goalEnv]} (EGES ${eges.toFixed(2)}); ${supportCount} supporting observation(s), ${opposeCount} opposing.`;
+  } else if(goalEnv==='G1'||goalEnv==='G2'){
+    primary='Under 3.5 Goals'; secondary='BTTS No';
+    why = conflict
+      ? `Season average points to ${goalEnvLabels[goalEnv].toLowerCase()} (EGES ${eges.toFixed(2)}), but recent trend evidence leans toward goals (${supportCount} supporting / ${opposeCount} opposing) — signals conflict.`
+      : `${goalEnvLabels[goalEnv]} (EGES ${eges.toFixed(2)}); ${supportCount} supporting observation(s), ${opposeCount} opposing.`;
+  } else {
+    if(bttsSupport>bttsOppose){ primary='BTTS'; secondary='Over 1.5 Goals'; }
+    else { primary='Over 1.5 Goals'; secondary='Under 3.5 Goals'; }
+    why=`Balanced environment (EGES ${eges.toFixed(2)}); BTTS evidence ${bttsSupport} for / ${bttsOppose} against.`;
+  }
+  if(conflict){
+    confidence = 'Low';
+    why += ' Treat this pick with extra caution.';
+  }
+  if(Math.abs(diff)>=3 && confidence==='High'){
+    why += ` Strong ${leanLabel.toLowerCase()} lean — Double Chance is a directional alternative.`;
+  }
+
+  lastEvaluation = {
+    id:'fx_'+Date.now(), country, league, date, time, home, away,
+    conflict,
+    neutral:checked('f-neutral'), cup:checked('f-cup'),
+    observations:obs, eges:+eges.toFixed(2), goalEnv, goalEnvLabel:goalEnvLabels[goalEnv],
+    evidence, supportCount, opposeCount, confidence, homePts, awayPts, lean, leanLabel,
+    primary, secondary, why, anomalies, aiAnomalyNote:null, sampleSizeExcluded: !sampleSizeOk,
+    bet:null,
+    result:{entered:false, homeScore:null, awayScore:null, primaryHit:null, secondaryHit:null, failureTag:null},
+    createdAt:Date.now()
+  };
+  renderResult(lastEvaluation);
+}
+
+function renderResult(ev){
+  document.querySelectorAll('.step').forEach(s=>s.style.display='none');
+  document.querySelector('.wizard-nav').style.display='none';
+  const card = document.getElementById('result-card');
+  card.style.display='block';
+  document.getElementById('back-btn').classList.remove('show');
+  document.getElementById('result-badge').className = 'badge '+ev.confidence.toLowerCase();
+  document.getElementById('result-badge').textContent = ev.confidence+' confidence';
+  document.getElementById('result-goalenv').textContent = `${ev.goalEnv} — ${ev.goalEnvLabel}`;
+  document.getElementById('result-primary').textContent = ev.primary;
+  document.getElementById('result-secondary').textContent = ev.secondary;
+  document.getElementById('result-why').textContent = ev.why;
+  document.getElementById('result-eges').textContent = ev.eges;
+  document.getElementById('result-lean').textContent = `${ev.lean} — ${ev.leanLabel}`;
+  document.getElementById('result-points').textContent = `${ev.homePts} / ${ev.awayPts}`;
+  document.getElementById('evidence-support').innerHTML = ev.evidence.filter(e=>e.direction==='support').map(e=>`<li class="support">${e.label}</li>`).join('');
+  document.getElementById('evidence-oppose').innerHTML = ev.evidence.filter(e=>e.direction==='oppose').map(e=>`<li class="oppose">${e.label}</li>`).join('');
+  const oppEl = document.getElementById('opp-strength-note');
+  if(oppEl){
+    const parts = [];
+    if(ev.observations.hOppStrength) parts.push(`Home sample vs: ${ev.observations.hOppStrength}`);
+    if(ev.observations.aOppStrength) parts.push(`Away sample vs: ${ev.observations.aOppStrength}`);
+    oppEl.style.display = parts.length ? 'block' : 'none';
+    oppEl.textContent = parts.join(' · ');
+  }
+  const banner = document.getElementById('anomaly-banner');
+  if(ev.anomalies && ev.anomalies.length){
+    banner.style.display = 'block';
+    banner.innerHTML = ev.anomalies.map(a=>`⚠ ${escapeHtml(a)}`).join('<br>');
+  } else {
+    banner.style.display = 'none';
+  }
+  document.getElementById('ai-anomaly-note').textContent = ev.aiAnomalyNote || '';
+  const sampleNote = document.getElementById('sample-floor-note');
+  if(sampleNote){
+    sampleNote.style.display = ev.sampleSizeExcluded ? 'block' : 'none';
+    sampleNote.textContent = ev.sampleSizeExcluded ? `Scored/conceded rate evidence excluded — sample size below the floor of ${settings.minSampleSize} matches.` : '';
+  }
+  const details = card.querySelector('details');
+  if(prefs.expandReasoning) details.setAttribute('open','');
+  card.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function discardResult(){
+  if(prefs.confirmDiscard){
+    showConfirm('Discard entry?', 'This evaluation will be lost.', 'Discard', doDiscard);
+  } else {
+    doDiscard();
+  }
+}
+function doDiscard(){
+  lastEvaluation = null;
+  resetWizard();
+}
+function saveToEcho(){
+  if(!lastEvaluation) return;
+  fixtures.unshift(lastEvaluation);
+  if(lastEvaluation.league && lastEvaluation.observations && lastEvaluation.observations.lga){
+    lgaHistory.unshift({ league: lastEvaluation.league, date: lastEvaluation.date, lga: lastEvaluation.observations.lga });
+    lgaHistory = lgaHistory.slice(0,2000);
+  }
+  persist();
+  refreshMemory();
+  toast('Saved to Echo Log');
+  lastEvaluation = null;
+  resetWizard();
+}
+
+// ============ ECHO LOG ============
+let logFilter = 'all';
+function setLogFilter(filter){
+  logFilter = filter;
+  document.querySelectorAll('.filter-chip').forEach(b=>b.classList.toggle('active', b.dataset.filter===filter));
+  renderLog();
+}
+function renderLog(){
+  const total = fixtures.length;
+  const pendingCount = fixtures.filter(f=>!f.result.entered).length;
+  document.getElementById('log-count').textContent = `${total} logged · ${pendingCount} pending`;
+
+  let shown = fixtures;
+  if(logFilter==='pending') shown = fixtures.filter(f=>!f.result.entered);
+  if(logFilter==='resolved') shown = fixtures.filter(f=>f.result.entered);
+
+  // Sort by match date (fixtures without a date fall back to entry order, kept at the end).
+  shown = [...shown].sort((a,b)=>{
+    if(a.date && b.date) return b.date.localeCompare(a.date) || (b.time||'').localeCompare(a.time||'') || b.createdAt-a.createdAt;
+    if(a.date) return -1;
+    if(b.date) return 1;
+    return b.createdAt - a.createdAt;
+  });
+
+  const list = document.getElementById('log-list');
+  if(shown.length===0){
+    list.innerHTML = `<div class="empty">${logFilter==='all' ? 'No entries yet. Evaluate a fixture to begin.' : `No ${logFilter} fixtures.`}</div>`;
+    return;
+  }
+  list.innerHTML = shown.map((fx)=>{
+    const idx = String(fixtures.length - fixtures.indexOf(fx)).padStart(3,'0');
+    let badgeCls, badgeText;
+    if(fx.result.entered){
+      badgeCls = fx.result.primaryHit ? 'won' : 'lost';
+      badgeText = `${fx.result.homeScore}–${fx.result.awayScore}`;
+    } else {
+      badgeCls = 'pending'; badgeText = 'Pending';
+    }
+    return `<div class="log-card" onclick="openFixtureDetail('${fx.id}')">
+      <div class="row-between">
+        <span class="entry-idx">No.${idx}</span>
+        <span class="badge ${badgeCls}">${badgeText}</span>
+      </div>
+      <div class="log-card-fixture">${fx.home} vs ${fx.away}</div>
+      <div class="log-card-meta">${leagueLabel(fx)} · ${dateLabel(fx)}</div>
+    </div>`;
+  }).join('');
+}
+
+function evaluateMarketHit(market, hs, as){
+  const total = hs + as;
+  if(market === 'Over 1.5 Goals') return total >= 2;
+  if(market === 'Over 2.5 Goals') return total >= 3;
+  if(market === 'Under 3.5 Goals') return total <= 3;
+  if(market === 'BTTS') return hs > 0 && as > 0;
+  if(market === 'BTTS No') return !(hs > 0 && as > 0);
+  return null;
+}
+
+let currentDetailId = null;
+function openFixtureDetail(id){
+  currentDetailId = id;
+  const fx = fixtures.find(f=>f.id===id); if(!fx) return;
+  document.getElementById('detail-title').textContent = `${fx.home} vs ${fx.away}`;
+  document.getElementById('detail-meta').textContent = `${leagueLabel(fx)} · ${dateLabel(fx)}`;
+  document.getElementById('detail-confidence-badge').className = 'badge '+fx.confidence.toLowerCase();
+  document.getElementById('detail-confidence-badge').textContent = fx.confidence+' confidence';
+  document.getElementById('detail-goalenv').textContent = `${fx.goalEnv} — ${fx.goalEnvLabel}`;
+  document.getElementById('detail-lean').textContent = `${fx.lean} — ${fx.leanLabel}`;
+  document.getElementById('detail-primary').textContent = fx.primary;
+  document.getElementById('detail-secondary').textContent = fx.secondary;
+  document.getElementById('detail-why').textContent = fx.why;
+  document.getElementById('detail-eges').textContent = fx.eges;
+  document.getElementById('detail-points').textContent = `${fx.homePts} / ${fx.awayPts}`;
+  document.getElementById('detail-evidence-support').innerHTML = fx.evidence.filter(e=>e.direction==='support').map(e=>`<li class="support">${e.label}</li>`).join('') || '<li style="background:none;color:var(--ink-muted);">None</li>';
+  document.getElementById('detail-evidence-oppose').innerHTML = fx.evidence.filter(e=>e.direction==='oppose').map(e=>`<li class="oppose">${e.label}</li>`).join('') || '<li style="background:none;color:var(--ink-muted);">None</li>';
+
+  renderResultActions(fx, false);
+  document.getElementById('detail-modal-overlay').classList.add('show');
+}
+
+function renderResultActions(fx, editMode){
+  const actions = document.getElementById('detail-result-actions');
+  if(!fx.result.entered || editMode){
+    actions.innerHTML = `
+      <div class="result-sub" style="margin-bottom:8px;">Final score</div>
+      <div class="grid2">
+        <div><label>${fx.home}</label><input id="score-home-input" type="number" min="0" value="${fx.result.entered ? fx.result.homeScore : ''}"></div>
+        <div><label>${fx.away}</label><input id="score-away-input" type="number" min="0" value="${fx.result.entered ? fx.result.awayScore : ''}"></div>
+      </div>
+      <button class="primary full" onclick="saveScore('${fx.id}')">Save Score</button>
+    `;
+  } else {
+    const pText = fx.result.primaryHit === null ? 'not tracked for this market' : (fx.result.primaryHit ? 'Hit' : 'Miss');
+    const sText = fx.result.secondaryHit === null ? 'not tracked for this market' : (fx.result.secondaryHit ? 'Hit' : 'Miss');
+    const failureTagUI = fx.result.primaryHit === false ? `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+        <div class="result-sub" style="margin-bottom:6px;">Why did this miss?</div>
+        <div class="row-between" style="gap:6px;">
+          ${['Variance','Model Error','Unclear'].map(tag=>`<button class="secondary small" style="flex:1;${fx.result.failureTag===tag?'border-color:var(--amber);color:var(--amber);':''}" onclick="setFailureTag('${fx.id}','${tag}')">${tag}</button>`).join('')}
+        </div>
+      </div>` : '';
+    actions.innerHTML = `
+      <div class="result-market" style="font-size:22px;">${fx.result.homeScore}–${fx.result.awayScore}</div>
+      <div class="result-sub">Primary (${fx.primary}): <span class="mono">${pText}</span></div>
+      <div class="result-sub">Secondary (${fx.secondary}): <span class="mono">${sText}</span></div>
+      ${failureTagUI}
+      <button class="secondary full" style="margin-top:10px;" onclick="editScore('${fx.id}')">Edit Score</button>
+    `;
+  }
+}
+function setFailureTag(id, tag){
+  const fx = fixtures.find(f=>f.id===id); if(!fx) return;
+  fx.result.failureTag = tag;
+  persist();
+  renderResultActions(fx, false);
+}
+
+function evaluateLeanHit(lean, hs, as){
+  if(lean==='D1'||lean==='D2') return hs>as;
+  if(lean==='D4'||lean==='D5') return as>hs;
+  return null; // D3 Neutral makes no directional claim, so it's not scoreable as hit/miss
+}
+
+function saveScore(id){
+  const fx = fixtures.find(f=>f.id===id); if(!fx) return;
+  const hsVal = document.getElementById('score-home-input').value;
+  const asVal = document.getElementById('score-away-input').value;
+  if(hsVal === '' || asVal === ''){ toast('Enter both scores'); return; }
+  const hs = parseInt(hsVal), as = parseInt(asVal);
+  fx.result.entered = true;
+  fx.result.homeScore = hs;
+  fx.result.awayScore = as;
+  fx.result.primaryHit = evaluateMarketHit(fx.primary, hs, as);
+  fx.result.secondaryHit = evaluateMarketHit(fx.secondary, hs, as);
+  fx.result.leanHit = evaluateLeanHit(fx.lean, hs, as);
+  fx.result.failureTag = null;
+  persist();
+  renderLog();
+  toast('Score saved');
+  renderResultActions(fx, false);
+}
+function editScore(id){
+  const fx = fixtures.find(f=>f.id===id); if(!fx) return;
+  renderResultActions(fx, true);
+}
+function buildShareText(fx){
+  const lines = [];
+  lines.push('SURVEYOR PICK — NE·004');
+  lines.push('');
+  lines.push(`${fx.home} vs ${fx.away}`);
+  lines.push(`${leagueLabel(fx)} · ${dateLabel(fx)}`);
+  lines.push('');
+  lines.push(`Goal Environment: ${fx.goalEnv} — ${fx.goalEnvLabel}`);
+  lines.push(`Lean: ${fx.leanLabel}`);
+  lines.push(`Confidence: ${fx.confidence}`);
+  lines.push('');
+  lines.push(`Primary: ${fx.primary}`);
+  lines.push(`Secondary: ${fx.secondary}`);
+  if(fx.result.entered){
+    lines.push('');
+    lines.push(`Result: ${fx.result.homeScore}–${fx.result.awayScore}`);
+    lines.push(`Primary: ${fx.result.primaryHit ? 'Hit' : 'Miss'}`);
+  }
+  lines.push('');
+  lines.push('— Noven Empire · Shadow System');
+  return lines.join('\n');
+}
+function shareFixture(id){
+  const fx = fixtures.find(f=>f.id===id); if(!fx) return;
+  const text = buildShareText(fx);
+  if(navigator.share){
+    navigator.share({text}).catch(()=>{});
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(()=>toast('Copied to clipboard')).catch(()=>toast('Could not copy'));
+  } else {
+    toast('Sharing not supported on this browser');
+  }
+}
+function deleteFixtureFromDetail(){
+  if(!currentDetailId) return;
+  const id = currentDetailId;
+  showConfirm('Delete this fixture?', 'This removes it from the Echo Log permanently.', 'Delete', ()=>{
+    fixtures = fixtures.filter(f=>f.id!==id);
+    persist();
+    renderLog();
+    refreshMemory();
+    closeDetailModal();
+    toast('Fixture deleted');
+  });
+}
+function closeDetailModal(){ document.getElementById('detail-modal-overlay').classList.remove('show'); currentDetailId = null; }
+
+// ============ REPORTS ============
+function backfillLeanHit(){
+  let changed = false;
+  fixtures.forEach(fx=>{
+    if(fx.result.entered && fx.result.leanHit===undefined){
+      fx.result.leanHit = evaluateLeanHit(fx.lean, fx.result.homeScore, fx.result.awayScore);
+      changed = true;
+    }
+    if(fx.conflict===undefined){
+      fx.conflict = computeConflict(fx.goalEnv, fx.supportCount, fx.opposeCount);
+      changed = true;
+    }
+  });
+  if(changed) persist();
+}
+function renderStaleAlert(){
+  const el = document.getElementById('stale-alert-card');
+  if(!el) return;
+  const now = new Date();
+  const stale = fixtures.filter(f=>{
+    if(f.result.entered || !f.date) return false;
+    const d = new Date(f.date+'T00:00:00');
+    const daysOld = (now-d)/86400000;
+    return daysOld > settings.staleDays;
+  });
+  if(!stale.length){ el.style.display='none'; return; }
+  el.style.display='block';
+  el.innerHTML = `<div class="result-sub" style="color:var(--oppose);">⚠ ${stale.length} pending fixture(s) over ${settings.staleDays} days old with no score entered.</div>
+    <button class="secondary full" style="margin-top:8px;" onclick="goScreen('log')">View in Echo Log</button>`;
+}
+function renderFailureBreakdown(resolved){
+  const el = document.getElementById('report-failuretag');
+  if(!el) return;
+  const misses = resolved.filter(f=>f.result.primaryHit===false);
+  if(!misses.length){ el.innerHTML = `<div class="result-sub">No misses logged yet.</div>`; return; }
+  const counts = { 'Variance':0, 'Model Error':0, 'Unclear':0, 'Untagged':0 };
+  misses.forEach(f=>{ counts[f.result.failureTag || 'Untagged']++; });
+  el.innerHTML = `<table><tr><th>Reason</th><th>Count</th><th>% of misses</th></tr>` +
+    Object.keys(counts).filter(k=>counts[k]>0).map(k=>
+      `<tr><td>${k}</td><td class="num">${counts[k]}</td><td class="num">${((counts[k]/misses.length)*100).toFixed(0)}%</td></tr>`
+    ).join('') + `</table>`;
+}
+function renderLgaTrend(){
+  const el = document.getElementById('report-lga-trend');
+  if(!el) return;
+  if(!lgaHistory.length){ el.innerHTML = `<div class="result-sub">No League Goal Average history logged yet.</div>`; return; }
+  const byLeague = {};
+  lgaHistory.forEach(h=>{
+    if(!byLeague[h.league]) byLeague[h.league] = [];
+    byLeague[h.league].push(h);
+  });
+  const rows = Object.keys(byLeague).map(league=>{
+    const entries = byLeague[league].slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const earliest = entries[0].lga, latest = entries[entries.length-1].lga;
+    const drift = (latest-earliest);
+    return { league, earliest, latest, drift, n: entries.length };
+  });
+  el.innerHTML = `<table><tr><th>League</th><th>Earliest</th><th>Latest</th><th>Drift</th></tr>` +
+    rows.map(r=>`<tr><td>${escapeHtml(r.league)} (n=${r.n})</td><td class="num">${r.earliest}</td><td class="num">${r.latest}</td><td class="num" style="color:${Math.abs(r.drift)>=0.3?'var(--oppose)':'inherit'}">${r.drift>0?'+':''}${r.drift.toFixed(2)}</td></tr>`).join('') +
+    `</table>`;
+}
+function computeBettingPerformance(){
+  const staked = fixtures.filter(f=>f.result.entered && f.bet && f.bet.oddsTaken && f.bet.stake>0);
+  if(!staked.length) return null;
+  let totalStake=0, totalProfit=0, wins=0;
+  staked.forEach(f=>{
+    totalStake += f.bet.stake;
+    if(f.result.primaryHit){ totalProfit += f.bet.stake*(f.bet.oddsTaken-1); wins++; }
+    else { totalProfit -= f.bet.stake; }
+  });
+  return { n: staked.length, wins, totalStake, totalProfit, roi: (totalProfit/totalStake)*100 };
+}
+function renderBettingPerformance(){
+  const el = document.getElementById('report-betting-perf');
+  if(!el) return;
+  const perf = computeBettingPerformance();
+  if(!perf){ el.innerHTML = `<div class="result-sub">No staked, odds-logged, resolved picks yet.</div>`; return; }
+  const profitColor = perf.totalProfit>=0 ? 'var(--support)' : 'var(--oppose)';
+  el.innerHTML = `<div class="result-sub" style="margin-bottom:8px;">${perf.n} staked pick(s) with odds logged · ${perf.wins} hit</div>
+    <table><tr><th>Staked</th><th>P/L</th><th>ROI</th></tr>
+    <tr><td class="num">${fmtNaira(perf.totalStake)}</td>
+        <td class="num" style="color:${profitColor}">${perf.totalProfit>=0?'+':''}${fmtNaira(perf.totalProfit)}</td>
+        <td class="num" style="color:${profitColor}">${perf.roi>=0?'+':''}${perf.roi.toFixed(1)}%</td></tr>
+    </table>`;
+}
+function renderReports(){
+  backfillLeanHit();
+  const resolved = fixtures.filter(f=>f.result.entered);
+  renderStaleAlert();
+  const summaryRate = document.getElementById('reports-summary-rate');
+  const summarySub = document.getElementById('reports-summary-sub');
+  if(resolved.length===0){
+    summaryRate.textContent = '—';
+    summarySub.textContent = 'No resolved fixtures yet.';
+  } else {
+    const wins = resolved.filter(f=>f.result.primaryHit).length;
+    const pct = ((wins/resolved.length)*100).toFixed(0);
+    summaryRate.textContent = `${pct}% win rate`;
+    const pendingCount = fixtures.filter(f=>!f.result.entered).length;
+    summarySub.textContent = `${wins}/${resolved.length} resolved` + (pendingCount>0 ? ` · ${pendingCount} pending` : '');
+  }
+  renderFailureBreakdown(resolved);
+  renderLgaTrend();
+  renderBettingPerformance();
+  renderReportTable('report-market', groupWinRate(resolved, f=>f.primary, f=>f.result.primaryHit));
+  renderReportTable('report-secondary', groupWinRate(resolved, f=>f.secondary, f=>f.result.secondaryHit));
+  renderReportTable('report-goalenv', groupWinRate(resolved, f=>f.goalEnv, f=>f.result.primaryHit));
+  renderReportTable('report-lean', groupWinRate(resolved, f=>f.leanLabel, f=>f.result.leanHit));
+  renderReportTable('report-confidence', groupWinRate(resolved, f=>f.confidence, f=>f.result.primaryHit));
+  renderReportTable('report-league', groupWinRate(resolved, f=>leagueLabel(f), f=>f.result.primaryHit));
+  renderReportTable('report-conflict', groupWinRate(resolved, f=>f.conflict ? 'Conflicting Signals' : 'Aligned Signals', f=>f.result.primaryHit));
+  renderThresholdCalibration();
+  renderReviewHistory();
+  renderAiQueryLog();
+}
+function groupWinRate(list, keyFn, hitFn){
+  const groups={};
+  list.forEach(f=>{
+    const hit = hitFn(f);
+    if(hit===null || hit===undefined) return;
+    const k=keyFn(f);
+    if(!groups[k]) groups[k]={wins:0,total:0};
+    groups[k].total++;
+    if(hit) groups[k].wins++;
+  });
+  return groups;
+}
+function renderReportTable(elId, groups){
+  const el = document.getElementById(elId);
+  const keys = Object.keys(groups);
+  if(keys.length===0){ el.innerHTML = `<tr><td class="empty" style="padding:14px 4px;">No resolved fixtures yet</td></tr>`; return; }
+  el.innerHTML = `<tr><th>Group</th><th>Record</th><th>Win %</th></tr>` + keys.map(k=>{
+    const g=groups[k]; const pct=((g.wins/g.total)*100).toFixed(0);
+    return `<tr><td>${k}</td><td class="num">${g.wins}/${g.total}</td><td class="num">${pct}%</td></tr>`;
+  }).join('');
+}
+
+// ============ THRESHOLD CALIBRATION ============
+// Ties Settings > Evidence Thresholds to real Echo results, so each threshold
+// carries the same Observed -> Testing -> Provisional -> Validated maturity
+// tiers used in the Pattern Registry, instead of being an unstatused number.
+function marketNameForCode(code){
+  if(code==='over15') return 'Over 1.5 Goals';
+  if(code==='btts') return 'BTTS';
+  return null;
+}
+function computeThresholdStats(){
+  const groups = {
+    over15Freq: {label:'Over 1.5 Frequency', tested:0, supportTotal:0, supportHits:0, opposeTotal:0, opposeHits:0},
+    bttsFreq:   {label:'BTTS Frequency', tested:0, supportTotal:0, supportHits:0, opposeTotal:0, opposeHits:0},
+    scoredRate: {label:'Scored / Conceded Rate', tested:0, supportTotal:0, supportHits:0, opposeTotal:0, opposeHits:0},
+    lga:        {label:'League Goal Average', tested:0, supportTotal:0, supportHits:0, opposeTotal:0, opposeHits:0}
+  };
+  const resolved = fixtures.filter(f=>f.result.entered);
+  resolved.forEach(f=>{
+    const seenThisFixture = new Set();
+    (f.evidence||[]).forEach(e=>{
+      const g = groups[e.metric];
+      if(!g) return;
+      const marketName = marketNameForCode(e.market);
+      if(!marketName) return;
+      const hit = evaluateMarketHit(marketName, f.result.homeScore, f.result.awayScore);
+      if(hit===null) return;
+      if(!seenThisFixture.has(e.metric)){ g.tested++; seenThisFixture.add(e.metric); }
+      if(e.direction==='support'){ g.supportTotal++; if(hit) g.supportHits++; }
+      else if(e.direction==='oppose'){ g.opposeTotal++; if(!hit) g.opposeHits++; }
+    });
+  });
+  return groups;
+}
+function renderThresholdCalibration(){
+  const el = document.getElementById('report-thresholds');
+  if(!el) return;
+  const groups = computeThresholdStats();
+  el.innerHTML = Object.keys(groups).map(key=>{
+    const g = groups[key];
+    const s = patternStatus(g.tested);
+    const supportPct = g.supportTotal>0 ? `${((g.supportHits/g.supportTotal)*100).toFixed(0)}%` : '—';
+    const opposePct = g.opposeTotal>0 ? `${((g.opposeHits/g.opposeTotal)*100).toFixed(0)}%` : '—';
+    return `<div class="row-between" style="padding:10px 0;border-bottom:1px solid var(--border);align-items:flex-start;">
+      <div>
+        <div style="font-size:13px;">${g.label}</div>
+        <div class="result-sub" style="margin-top:2px;">${g.tested} fixture(s) tested · Support correct ${supportPct} (n=${g.supportTotal}) · Oppose correct ${opposePct} (n=${g.opposeTotal})</div>
+      </div>
+      <span class="badge ${s.cls}" style="flex-shrink:0;margin-left:10px;">${s.status}</span>
+    </div>`;
+  }).join('');
+}
+function refreshThresholdBadges(){
+  const groups = computeThresholdStats();
+  Object.keys(groups).forEach(key=>{
+    const el = document.getElementById('tb-'+key);
+    if(!el) return;
+    const s = patternStatus(groups[key].tested);
+    el.className = 'badge '+s.cls;
+    el.textContent = `${s.status} · ${groups[key].tested}`;
+  });
+}
+
+// ============ GEMINI AI ASSISTANT ============
+// Shared call used by all three AI features. The AI is only ever asked to
+// describe/summarize/flag — never to set thresholds, choose markets, or
+// make predictions. That judgment stays with evaluateFixture() and the user.
+const GEMINI_TIMEOUT_MS = 20000;
+
+function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+async function fetchWithTimeout(url, options, timeoutMs){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), timeoutMs || GEMINI_TIMEOUT_MS);
+  try{
+    return await fetch(url, {...options, signal: controller.signal});
+  }catch(e){
+    if(e.name === 'AbortError') throw new Error(`Request timed out after ${(timeoutMs||GEMINI_TIMEOUT_MS)/1000}s.`);
+    throw e;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+// Retries only on 429 (rate limited), honoring Retry-After when present.
+// Any other status (404 not found, 400 bad request, etc.) returns immediately -
+// retrying those would just waste calls on a problem that won't resolve itself.
+async function fetchGeminiWithRetry(url, options, maxRetries){
+  maxRetries = maxRetries==null ? 2 : maxRetries;
+  let attempt = 0;
+  while(true){
+    const res = await fetchWithTimeout(url, options);
+    if(res.status !== 429 || attempt >= maxRetries) return res;
+    const retryAfterHeader = parseFloat(res.headers.get('Retry-After'));
+    const waitMs = !isNaN(retryAfterHeader) ? retryAfterHeader*1000 : 1500 * Math.pow(2, attempt);
+    attempt++;
+    await sleep(waitMs);
+  }
+}
+
+async function callGemini(promptText){
+  const key = settings.geminiApiKey;
+  const model = settings.geminiModel || DEFAULT_SETTINGS.geminiModel;
+  if(!key) throw new Error('No Gemini API key set. Add one in Settings > AI Assistant.');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const res = await fetchGeminiWithRetry(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+  });
+  if(!res.ok){
+    let detail = '';
+    try{ detail = (await res.text()).slice(0,200); }catch(e){}
+    if(res.status === 429) throw new Error(`Gemini is rate-limiting this key right now. Wait a bit and try again.`);
+    throw new Error(`Gemini API error (${res.status}). ${detail} — try Settings > AI Assistant > Find Working Models.`);
+  }
+  const data = await res.json();
+  const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+  if(!parts) throw new Error('Gemini returned no content (it may have blocked the response).');
+  return parts.map(p=>p.text||'').join('\n').trim();
+}
+
+
+// ============ ANOMALY CHECKS ============
+// Deterministic checks always run, free and instant - consistent with
+// Surveyor's "no hidden weighting" rule. The optional AI pass is advisory
+// only and never overrides these or generates its own market opinion.
+function runAnomalyChecks(obs){
+  const warnings = [];
+  const pctCheck = (v,label) => { if(v<0 || v>100) warnings.push(`${label} is ${v}% — outside the 0–100% range.`); };
+  pctCheck(obs.hOver15,'Home Over 1.5 frequency'); pctCheck(obs.aOver15,'Away Over 1.5 frequency');
+  pctCheck(obs.hBtts,'Home BTTS frequency'); pctCheck(obs.aBtts,'Away BTTS frequency');
+  if(!obs.rawSampleSize || obs.rawSampleSize<=0){
+    warnings.push(`Sample size is ${obs.rawSampleSize||0} — the app defaulted to 5 matches for scored/conceded rate calculations. Double check this is intended, or enter the real sample size.`);
+  } else {
+    const rates = {
+      'Home scored rate': obs.hScored/obs.sampleSize,
+      'Away scored rate': obs.aScored/obs.sampleSize,
+      'Home conceded rate': obs.hConceded/obs.sampleSize,
+      'Away conceded rate': obs.aConceded/obs.sampleSize
+    };
+    Object.keys(rates).forEach(label=>{
+      const v = rates[label];
+      if(v>5) warnings.push(`${label} is ${v.toFixed(2)} goals/match — unusually high, double check the sample size and goal counts entered.`);
+      if(v<0) warnings.push(`${label} is negative — check the goals or sample size entered.`);
+    });
+  }
+  if(obs.lga>0 && obs.sampleSize>0){
+    const teamAvgPerMatch = (obs.hScored+obs.aScored+obs.hConceded+obs.aConceded)/(2*obs.sampleSize);
+    if(Math.abs(obs.lga - teamAvgPerMatch) > 1.5){
+      warnings.push(`League Goal Average (${obs.lga}) looks inconsistent with the scoring/conceding rates entered for these two teams — worth a second look.`);
+    }
+  }
+  return warnings;
+}
+async function runAiAnomalyCheck(){
+  const noteEl = document.getElementById('ai-anomaly-note');
+  if(!lastEvaluation) return;
+  if(!settings.geminiApiKey){ toast('Add a Gemini API key in Settings first'); return; }
+  noteEl.textContent = 'Checking…';
+  try{
+    const prompt = `You are sanity-checking raw football match statistics for data-entry errors only. `
+      + `Do not predict the match outcome, do not recommend a betting market, and do not discuss odds. `
+      + `Only flag numeric values that look inconsistent, implausible, or like likely typos. `
+      + `Reply in at most 3 short plain-language bullet points, no markdown headers. `
+      + `If nothing looks off beyond what is already flagged, say so in one short sentence.\n\n`
+      + `Observations: ${JSON.stringify(lastEvaluation.observations)}\n`
+      + `Already-flagged issues: ${JSON.stringify(lastEvaluation.anomalies)}`;
+    const text = await callGemini(prompt);
+    lastEvaluation.aiAnomalyNote = text;
+    noteEl.textContent = text;
+  }catch(e){
+    noteEl.textContent = 'AI check failed: '+e.message;
+  }
+}
+
+// ============ AI CALIBRATION REVIEW ============
+async function generateAiReview(){
+  const out = document.getElementById('ai-review-output');
+  if(!settings.geminiApiKey){ toast('Add a Gemini API key in Settings first'); return; }
+  out.textContent = 'Generating review…';
+  document.getElementById('ai-review-actions').style.display = 'none';
+  try{
+    const resolved = fixtures.filter(f=>f.result.entered);
+    const payload = {
+      totalResolved: resolved.length,
+      marketPerformance: groupWinRate(resolved, f=>f.primary, f=>f.result.primaryHit),
+      confidencePerformance: groupWinRate(resolved, f=>f.confidence, f=>f.result.primaryHit),
+      goalEnvPerformance: groupWinRate(resolved, f=>f.goalEnv, f=>f.result.primaryHit),
+      thresholdStats: computeThresholdStats(),
+      patterns: patterns.map(p=>({league:p.league, observation:p.observation, sample:p.sample, status:patternStatus(p.sample).status}))
+    };
+    const prompt = `You are drafting an Echo calibration review note for a personal, rule-based football-analysis system called Surveyor. `
+      + `Rules: describe only what the data shows, in plain language. Do NOT recommend specific threshold changes or say things like "you should raise/lower X". `
+      + `Do not predict future matches. Mention sample sizes so the reader can judge how much to trust each figure. Keep it under 180 words, no markdown headers.\n\n`
+      + `Data:\n${JSON.stringify(payload)}`;
+    const text = await callGemini(prompt);
+    out.textContent = text;
+    document.getElementById('ai-review-actions').style.display = 'flex';
+  }catch(e){
+    out.textContent = 'Review generation failed: '+e.message;
+  }
+}
+function discardAiReview(){
+  document.getElementById('ai-review-output').textContent = '';
+  document.getElementById('ai-review-actions').style.display = 'none';
+}
+function saveAiReviewNote(){
+  const text = document.getElementById('ai-review-output').textContent;
+  if(!text) return;
+  reviewNotes.unshift({ id:'rev_'+Date.now(), date:new Date().toISOString(), text });
+  reviewNotes = reviewNotes.slice(0,25);
+  persist();
+  discardAiReview();
+  renderReviewHistory();
+  toast('Review note saved');
+}
+function renderReviewHistory(){
+  const el = document.getElementById('ai-review-history');
+  if(!el) return;
+  if(!reviewNotes.length){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="result-sub" style="margin-bottom:6px;"><b>Saved reviews</b></div>' + reviewNotes.slice(0,10).map(r=>
+    `<div style="padding:8px 0;border-bottom:1px solid var(--border);">
+      <div class="result-sub" style="margin-bottom:4px;">${new Date(r.date).toLocaleString()}</div>
+      <div style="font-size:12.5px;white-space:pre-wrap;">${escapeHtml(r.text)}</div>
+    </div>`).join('');
+}
+
+// ============ ASK AI ABOUT ECHO LOG ============
+function buildEchoSummaryForAI(){
+  const resolved = fixtures.filter(f=>f.result.entered);
+  return resolved.slice(-300).map(f=>({
+    date:f.date, league:f.league, home:f.home, away:f.away,
+    goalEnv:f.goalEnv, confidence:f.confidence, lean:f.lean,
+    primary:f.primary, secondary:f.secondary,
+    homeScore:f.result.homeScore, awayScore:f.result.awayScore,
+    primaryHit:f.result.primaryHit, secondaryHit:f.result.secondaryHit,
+    conflict: !!f.conflict
+  }));
+}
+async function runAiQuery(){
+  const input = document.getElementById('ai-query-input');
+  const question = input.value.trim();
+  if(!question) return;
+  if(!settings.geminiApiKey){ toast('Add a Gemini API key in Settings first'); return; }
+  const pendingId = 'q_'+Date.now();
+  aiQueryLog.unshift({id:pendingId, question, answer:'Thinking…', date:new Date().toISOString()});
+  renderAiQueryLog();
+  input.value = '';
+  try{
+    const data = buildEchoSummaryForAI();
+    const prompt = `You are answering a question about a personal football-prediction Echo Log (a record of past fixture evaluations and results). `
+      + `Answer ONLY using the JSON data provided below — do not use outside knowledge about teams or leagues, and do not predict future matches. `
+      + `If the data doesn't contain enough to answer, say so plainly. Cite counts (e.g. "n=12") when giving a win rate. Keep the answer under 120 words.\n\n`
+      + `Question: ${question}\n\n`
+      + `Data (${data.length} resolved fixtures shown):\n${JSON.stringify(data)}`;
+    const answer = await callGemini(prompt);
+    const entry = aiQueryLog.find(q=>q.id===pendingId);
+    if(entry) entry.answer = answer;
+  }catch(e){
+    const entry = aiQueryLog.find(q=>q.id===pendingId);
+    if(entry) entry.answer = 'Query failed: '+e.message;
+  }
+  aiQueryLog = aiQueryLog.slice(0,20);
+  persist();
+  renderAiQueryLog();
+}
+function renderAiQueryLog(){
+  const el = document.getElementById('ai-query-log');
+  if(!el) return;
+  el.innerHTML = aiQueryLog.map(q=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:12.5px;font-weight:600;">${escapeHtml(q.question)}</div>
+      <div class="result-sub" style="margin-top:4px;white-space:pre-wrap;">${escapeHtml(q.answer)}</div>
+    </div>`).join('');
+}
+
+// ============ GEMINI MODEL DISCOVERY & TESTING ============
+// Lists every model the key can see, keeps only ones that declare
+// generateContent support, then actually calls each one with a tiny request
+// so decommissioned/inaccessible models show up as failed rather than
+// silently breaking the three AI features later.
+async function listGeminiModels(){
+  const key = settings.geminiApiKey;
+  if(!key) throw new Error('No Gemini API key set.');
+  let models = [];
+  let pageToken = '';
+  do{
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?pageSize=100${pageToken ? '&pageToken='+encodeURIComponent(pageToken) : ''}`;
+    const res = await fetchGeminiWithRetry(url, { headers: { 'x-goog-api-key': key } });
+    if(!res.ok){
+      let detail = ''; try{ detail = (await res.text()).slice(0,200); }catch(e){}
+      throw new Error(`Could not list models (${res.status}). ${detail}`);
+    }
+    const data = await res.json();
+    models = models.concat(data.models || []);
+    pageToken = data.nextPageToken || '';
+  } while(pageToken);
+  return models.filter(m=>{
+    const methods = m.supportedGenerationMethods || m.supportedActions || [];
+    return methods.includes('generateContent');
+  }).map(m=>({ id: (m.name||'').replace(/^models\//,''), displayName: m.displayName || m.name }));
+}
+async function testGeminiModel(modelId){
+  const key = settings.geminiApiKey;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent`;
+  try{
+    const res = await fetchGeminiWithRetry(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({ contents:[{ parts:[{ text:'Reply with just the word OK.' }] }], generationConfig:{ maxOutputTokens:5 } })
+    }, 1);
+    if(!res.ok){
+      if(res.status === 429) return { id: modelId, ok:false, error: 'Rate limited — try checking again in a bit.' };
+      let detail = ''; try{ detail = (await res.json()).error?.message || ''; }catch(e){}
+      return { id: modelId, ok:false, error: detail || `HTTP ${res.status}` };
+    }
+    return { id: modelId, ok:true };
+  }catch(e){
+    return { id: modelId, ok:false, error: e.message };
+  }
+}
+async function findWorkingModels(){
+  const out = document.getElementById('model-test-output');
+  const btn = document.getElementById('model-test-btn');
+  if(!settings.geminiApiKey){ toast('Add a Gemini API key first'); return; }
+  btn.disabled = true;
+  out.innerHTML = 'Fetching model list…';
+  try{
+    const candidates = await listGeminiModels();
+    if(!candidates.length){ out.textContent = 'No generateContent-capable models found for this key.'; return; }
+    const results = [];
+    for(const c of candidates){
+      out.innerHTML = `Testing ${escapeHtml(c.id)}… (${results.length+1}/${candidates.length})`;
+      const r = await testGeminiModel(c.id);
+      results.push({...r, displayName:c.displayName});
+      if(results.length < candidates.length) await sleep(400); // space out calls to avoid tripping rate limits
+    }
+    renderModelTestResults(results);
+  }catch(e){
+    out.textContent = 'Model check failed: '+e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+function renderModelTestResults(results){
+  const out = document.getElementById('model-test-output');
+  const working = results.filter(r=>r.ok);
+  const failed = results.filter(r=>!r.ok);
+  out.innerHTML =
+    (working.length
+      ? `<div style="margin-bottom:8px;"><b>Working (${working.length}):</b></div>` +
+        working.map(r=>`<div class="row-between" style="padding:6px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:12.5px;">${escapeHtml(r.id)}</span>
+          <button class="secondary" style="font-size:11px;padding:5px 10px;" onclick="useGeminiModel('${r.id.replace(/'/g,"")}')">Use</button>
+        </div>`).join('')
+      : '<div class="result-sub">No working models found with this key.</div>')
+    + (failed.length
+      ? `<div style="margin:10px 0 6px;"><b>Not available (${failed.length}):</b></div>` +
+        failed.map(r=>`<div class="result-sub" style="padding:4px 0;">${escapeHtml(r.id)} — ${escapeHtml(r.error||'error')}</div>`).join('')
+      : '');
+}
+function useGeminiModel(id){
+  document.getElementById('s-geminiModel').value = id;
+  settings.geminiModel = id;
+  persist();
+  toast(`Now using ${id}`);
+}
+
+// ============ BET TAB ============
+function getCurrentWeekRange(){
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = (day===0 ? -6 : 1-day);
+  const monday = new Date(now);
+  monday.setHours(0,0,0,0);
+  monday.setDate(now.getDate()+diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate()+6);
+  sunday.setHours(23,59,59,999);
+  return {start:monday, end:sunday};
+}
+function computeWeekStakeInfo(){
+  const {start,end} = getCurrentWeekRange();
+  let staked = 0, lost = 0;
+  fixtures.forEach(f=>{
+    if(!f.bet || !f.bet.stake || !f.date) return;
+    const d = new Date(f.date+'T00:00:00');
+    if(d<start || d>end) return;
+    staked += f.bet.stake;
+    if(f.result.entered && f.result.primaryHit===false) lost += f.bet.stake;
+  });
+  return { staked, lost, limit: settings.weeklyStakeLimit };
+}
+function fmtNaira(n){
+  return '₦' + Number(n||0).toLocaleString('en-NG', {minimumFractionDigits:0, maximumFractionDigits:2});
+}
+function renderStakeMeter(){
+  const info = computeWeekStakeInfo();
+  document.getElementById('stake-meter-text').textContent = `${fmtNaira(info.staked)} / ${fmtNaira(info.limit)}`;
+  const pct = info.limit>0 ? Math.min(100,(info.staked/info.limit)*100) : 0;
+  const bar = document.getElementById('stake-meter-bar');
+  bar.style.width = pct+'%';
+  bar.style.background = pct>=100 ? 'var(--oppose)' : (pct>=80 ? '#C9932E' : 'var(--amber)');
+  const warn = document.getElementById('stake-meter-warning');
+  if(info.limit>0 && info.staked>info.limit){
+    warn.style.display = 'block';
+    warn.textContent = `⚠ ${fmtNaira(info.staked-info.limit)} over your weekly limit.`;
+  } else if(info.limit>0 && pct>=80){
+    warn.style.display = 'block';
+    warn.textContent = `Approaching weekly limit (${pct.toFixed(0)}%).`;
+  } else {
+    warn.style.display = 'none';
+  }
+}
+function setBetTab(tab){
+  document.getElementById('bet-tab-ai').classList.toggle('active', tab==='ai');
+  document.getElementById('bet-tab-manual').classList.toggle('active', tab==='manual');
+  document.getElementById('bet-panel-ai').style.display = tab==='ai' ? 'block' : 'none';
+  document.getElementById('bet-panel-manual').style.display = tab==='manual' ? 'block' : 'none';
+}
+function renderCorrelationWarning(){
+  const el = document.getElementById('correlation-warning');
+  if(!el) return;
+  const picks = fixtures.filter(f=>f.bet);
+  if(picks.length<3){ el.style.display='none'; return; }
+  const counts = {};
+  picks.forEach(f=>{ counts[f.primary] = (counts[f.primary]||0)+1; });
+  const [topMarket, topCount] = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+  const share = topCount/picks.length;
+  if(share>=0.7){
+    el.style.display='block';
+    el.textContent = `⚠ ${topCount}/${picks.length} picks are all "${topMarket}" — low diversification, one bad market wipes most of the slip.`;
+  } else {
+    el.style.display='none';
+  }
+}
+function renderBetScreen(){
+  document.getElementById('ai-cap-label').textContent = settings.maxAiPicks;
+  renderStakeMeter();
+  renderCorrelationWarning();
+  renderAiPicksList();
+  renderManualPicksList();
+  renderBetSlip();
+}
+function toggleManualPick(id){
+  const f = fixtures.find(x=>x.id===id);
+  if(!f) return;
+  if(f.bet && f.bet.list==='manual') f.bet = null;
+  else f.bet = { list:'manual', stake:0, aiReasoning:null, oddsTaken:null, addedAt:Date.now() };
+  persist(); renderBetScreen();
+}
+function removeBetPick(id){
+  const f = fixtures.find(x=>x.id===id);
+  if(!f) return;
+  f.bet = null;
+  persist(); renderBetScreen();
+}
+function setStake(id, inputEl){
+  const f = fixtures.find(x=>x.id===id);
+  if(!f || !f.bet) return;
+  let v = parseFloat(inputEl.value); if(isNaN(v) || v<0) v = 0;
+  if(settings.maxStakePerFixture>0 && v>settings.maxStakePerFixture){
+    v = settings.maxStakePerFixture;
+    inputEl.value = v;
+    toast(`Capped at ${fmtNaira(settings.maxStakePerFixture)} max per fixture`);
+  }
+  f.bet.stake = v;
+  persist(); renderStakeMeter(); renderBetSlip();
+}
+function setOddsTaken(id, inputEl){
+  const f = fixtures.find(x=>x.id===id);
+  if(!f || !f.bet) return;
+  let v = parseFloat(inputEl.value);
+  f.bet.oddsTaken = (isNaN(v) || v<=0) ? null : v;
+  persist(); renderBetSlip();
+}
+function pickCardHTML(f, mode){
+  const inBet = !!f.bet;
+  const reasoning = f.bet && f.bet.aiReasoning
+    ? `<div class="result-sub" style="margin-top:6px;font-style:italic;">${escapeHtml(f.bet.aiReasoning)}</div>` : '';
+  const stakeRow = inBet ? `
+    <div class="row-between" style="margin-top:8px;gap:10px;">
+      <label style="margin:0;flex-shrink:0;">Stake (₦)</label>
+      <input type="number" min="0" step="0.01" value="${f.bet.stake}" style="margin:0;" oninput="setStake('${f.id}', this)">
+      <button class="secondary small" onclick="removeBetPick('${f.id}')">Remove</button>
+    </div>
+    <div class="row-between" style="margin-top:8px;gap:10px;">
+      <label style="margin:0;flex-shrink:0;">Odds taken</label>
+      <input type="number" min="0" step="0.01" placeholder="e.g. 1.85" value="${f.bet.oddsTaken||''}" style="margin:0;" oninput="setOddsTaken('${f.id}', this)">
+    </div>` : '';
+  const addToggle = mode==='manual-candidate'
+    ? `<button class="secondary full" style="margin-top:8px;" onclick="toggleManualPick('${f.id}')">Add to My Picks</button>` : '';
+  const bookmakerLinks = inBet ? `
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+      <div class="result-sub" style="margin-bottom:8px;">Opens each site to search manually.</div>
+      <div class="row-between" style="gap:8px;">
+        <button class="secondary small" style="flex:1;" onclick="window.open('https://www.sportybet.com/ng/','_blank')">SportyBet</button>
+        <button class="secondary small" style="flex:1;" onclick="window.open('https://sports.bet9ja.com/','_blank')">Bet9ja</button>
+      </div>
+      <details style="margin-top:8px;">
+        <summary style="cursor:pointer;font-size:12px;color:var(--ink-muted);">More platforms</summary>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+          <button class="secondary small" style="flex:1 1 30%;min-width:80px;" onclick="window.open('https://www.betking.com/','_blank')">BetKing</button>
+          <button class="secondary small" style="flex:1 1 30%;min-width:80px;" onclick="window.open('https://www.betway.com.ng/','_blank')">Betway</button>
+          <button class="secondary small" style="flex:1 1 30%;min-width:80px;" onclick="window.open('https://www.1xbet.ng/','_blank')">1xBet</button>
+          <button class="secondary small" style="flex:1 1 30%;min-width:80px;" onclick="window.open('https://www.22bet.ng/','_blank')">22Bet</button>
+          <button class="secondary small" style="flex:1 1 30%;min-width:80px;" onclick="window.open('https://www.msport.com/ng/web','_blank')">MSport</button>
+          <button class="secondary small" style="flex:1 1 30%;min-width:80px;" onclick="window.open('https://nairabet.ng/','_blank')">NairaBet</button>
+        </div>
+      </details>
+    </div>` : '';
+  return `<div class="log-card" style="cursor:default;">
+    <div class="log-card-fixture">${escapeHtml(f.home)} vs ${escapeHtml(f.away)}</div>
+    <div class="log-card-meta">${escapeHtml(leagueLabel(f))} · ${escapeHtml(dateLabel(f))} · ${escapeHtml(f.primary)}</div>
+    ${reasoning}${stakeRow}${addToggle}${bookmakerLinks}
+  </div>`;
+}
+function renderAiPicksList(){
+  const list = document.getElementById('ai-picks-list');
+  const picks = fixtures.filter(f=>f.bet && f.bet.list==='ai');
+  if(!picks.length){ list.innerHTML = `<div class="empty">No AI picks yet. Tap Generate AI Picks above.</div>`; return; }
+  list.innerHTML = picks.map(f=>pickCardHTML(f,'ai')).join('');
+}
+function renderManualPicksList(){
+  const list = document.getElementById('manual-picks-list');
+  const pending = fixtures.filter(f=>!f.result.entered);
+  if(!pending.length){ list.innerHTML = `<div class="empty">No pending fixtures. Evaluate a fixture first.</div>`; return; }
+  list.innerHTML = pending.map(f=>{
+    if(f.bet && f.bet.list==='ai'){
+      return `<div class="log-card" style="cursor:default;opacity:0.6;">
+        <div class="log-card-fixture">${escapeHtml(f.home)} vs ${escapeHtml(f.away)}</div>
+        <div class="log-card-meta">${escapeHtml(leagueLabel(f))} · ${escapeHtml(dateLabel(f))}</div>
+        <div class="result-sub" style="margin-top:6px;">Already in AI Suggested picks.</div>
+      </div>`;
+    }
+    return pickCardHTML(f, f.bet && f.bet.list==='manual' ? 'manual-added' : 'manual-candidate');
+  }).join('');
+}
+function renderBetSlip(){
+  const out = document.getElementById('bet-slip-output');
+  const picks = fixtures.filter(f=>f.bet);
+  if(!picks.length){ out.textContent = 'No picks yet.'; return; }
+  const lines = picks.map(f=>`${f.home} vs ${f.away} — ${leagueLabel(f)} · ${dateLabel(f)}\n  ${f.primary} — Stake: ${fmtNaira(f.bet.stake)}`);
+  const total = picks.reduce((s,f)=>s+(f.bet.stake||0),0);
+  out.textContent = lines.join('\n\n') + `\n\nTotal staked: ${fmtNaira(total)}`;
+}
+function copyBetSlip(){
+  const text = document.getElementById('bet-slip-output').textContent;
+  if(!text || text==='No picks yet.'){ toast('Nothing to copy yet'); return; }
+  navigator.clipboard.writeText(text).then(()=>toast('Bet slip copied')).catch(()=>toast('Could not copy — select the text manually'));
+}
+function parseJsonLoose(raw){
+  let s = (raw||'').trim();
+  s = s.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'');
+  const start = s.indexOf('['), end = s.lastIndexOf(']');
+  if(start===-1 || end===-1) throw new Error('No JSON array found in the AI response.');
+  return JSON.parse(s.slice(start, end+1));
+}
+async function generateAiPicks(){
+  const statusEl = document.getElementById('ai-picks-status');
+  const btn = document.getElementById('generate-ai-picks-btn');
+  if(!settings.geminiApiKey){ toast('Add a Gemini API key in Settings first'); return; }
+  const pending = fixtures.filter(f=>!f.result.entered);
+  const aiCandidates = pending.filter(f=>!(f.bet && f.bet.list==='manual'));
+  if(!aiCandidates.length){ statusEl.textContent = 'No fixtures available for AI picks (they may all be in My Picks already).'; return; }
+  btn.disabled = true;
+  statusEl.textContent = 'Generating…';
+  try{
+    const candidates = aiCandidates.map(f=>({
+      id: f.id, league: f.league, home: f.home, away: f.away, date: f.date,
+      goalEnv: f.goalEnvLabel, lean: f.leanLabel,
+      primary: f.primary, secondary: f.secondary,
+      evidenceSupport: f.evidence.filter(e=>e.direction==='support').map(e=>e.label),
+      evidenceOppose: f.evidence.filter(e=>e.direction==='oppose').map(e=>e.label),
+      signalsConflict: !!f.conflict
+    }));
+    const cap = settings.maxAiPicks;
+    const prompt = `You are ranking candidate football fixtures for a personal betting shortlist, using ONLY the evidence provided below. `
+      + `You are deliberately NOT given any confidence label — judge each fixture strictly from its own supporting/opposing evidence, goal environment, lean, and whether its signals conflict. `
+      + `Pick at most ${cap} fixtures representing the strongest evidence-backed cases. Fewer than ${cap} is fine if the evidence doesn't support that many — do not pad the list. `
+      + `Favor fixtures with more supporting than opposing evidence and no signal conflict. `
+      + `Respond with STRICT JSON only, no markdown fences, no commentary before or after: an array like [{"id":"<fixture id>","reason":"<one sentence, under 25 words, grounded in the evidence>"}].\n\n`
+      + `Candidates:\n${JSON.stringify(candidates)}`;
+    const raw = await callGemini(prompt);
+    const parsed = parseJsonLoose(raw);
+    if(!Array.isArray(parsed)) throw new Error('AI response was not a list.');
+    fixtures.forEach(f=>{ if(f.bet && f.bet.list==='ai') f.bet = null; });
+    let applied = 0;
+    parsed
+      .filter(p=>{
+        const f = fixtures.find(x=>x.id===p.id);
+        return f && !f.result.entered && !(f.bet && f.bet.list==='manual');
+      })
+      .slice(0, cap)
+      .forEach(p=>{
+        const f = fixtures.find(x=>x.id===p.id);
+        f.bet = { list:'ai', stake:0, aiReasoning: p.reason||'', oddsTaken:null, addedAt:Date.now() };
+        applied++;
+      });
+    persist();
+    statusEl.textContent = `${applied} pick(s) selected.`;
+    renderBetScreen();
+  }catch(e){
+    statusEl.textContent = 'Could not generate picks: '+e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ============ ODDS API (read-only availability/odds check) ============
+let oddsSportsList = loadJSON('surveyor_odds_sports', []);
+async function fetchOddsSportsList(){
+  const statusEl = document.getElementById('odds-sports-status');
+  if(!settings.oddsApiKey){ toast('Add an Odds API key first'); return; }
+  statusEl.textContent = 'Fetching…';
+  try{
+    const res = await fetchWithTimeout('https://api.theoddsapi.com/sports/', { headers:{ 'x-api-key': settings.oddsApiKey } }, 15000);
+    if(!res.ok){
+      let detail=''; try{ detail=(await res.text()).slice(0,200); }catch(e){}
+      throw new Error(`HTTP ${res.status}. ${detail}`);
+    }
+    const data = await res.json();
+    const raw = data.data || data.sports || (Array.isArray(data) ? data : []);
+    const list = raw.map(s=>({ key: s.key || s.sport_key || s.id, title: s.title || s.name || s.key })).filter(s=>s.key);
+    oddsSportsList = list;
+    localStorage.setItem('surveyor_odds_sports', JSON.stringify(list));
+    statusEl.textContent = `${list.length} competition(s) loaded.`;
+  }catch(e){
+    statusEl.textContent = 'Could not fetch competitions: '+e.message;
+  }
+}
+function populateOddsSportSelect(fixtureId){
+  const sel = document.getElementById('odds-sport-'+fixtureId);
+  if(!sel) return;
+  if(!oddsSportsList.length){
+    sel.innerHTML = `<option value="">Refresh competitions in Settings first</option>`;
+    return;
+  }
+  const f = fixtures.find(x=>x.id===fixtureId);
+  const leagueGuess = (f && f.league || '').toLowerCase();
+  sel.innerHTML = oddsSportsList.map(s=>`<option value="${escapeHtml(s.key)}">${escapeHtml(s.title)}</option>`).join('');
+  const match = oddsSportsList.find(s=>s.title && leagueGuess && s.title.toLowerCase().includes(leagueGuess));
+  if(match) sel.value = match.key;
+}
+async function checkOddsForFixture(fixtureId){
+  const f = fixtures.find(x=>x.id===fixtureId);
+  const sel = document.getElementById('odds-sport-'+fixtureId);
+  const resultEl = document.getElementById('odds-result-'+fixtureId);
+  if(!f || !sel || !sel.value){ if(resultEl) resultEl.textContent = 'Pick a competition first.'; return; }
+  if(!settings.oddsApiKey){ toast('Add an Odds API key in Settings first'); return; }
+  resultEl.textContent = 'Checking…';
+  try{
+    const url = `https://api.theoddsapi.com/odds?sport_key=${encodeURIComponent(sel.value)}&markets=h2h&regions=uk,eu,us&oddsFormat=decimal`;
+    const res = await fetchWithTimeout(url, { headers:{ 'x-api-key': settings.oddsApiKey } }, 15000);
+    if(!res.ok){
+      let detail=''; try{ detail=(await res.text()).slice(0,200); }catch(e){}
+      throw new Error(`HTTP ${res.status}. ${detail}`);
+    }
+    const data = await res.json();
+    const events = data.data || [];
+    const norm = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const home = norm(f.home), away = norm(f.away);
+    const match = events.find(ev=>{
+      const eh = norm(ev.home_team), ea = norm(ev.away_team);
+      return (eh.includes(home) || home.includes(eh)) && (ea.includes(away) || away.includes(ea));
+    });
+    if(!match){ resultEl.textContent = "Not found in this competition's odds — may not be listed yet, or try a different competition."; return; }
+    const h2h = (match.books||[]).find(b=>b.market==='h2h');
+    if(!h2h){ resultEl.textContent = 'Fixture found, but no h2h odds published yet.'; return; }
+    resultEl.textContent = `${h2h.book}: ` + h2h.outcomes.map(o=>`${o.name} ${o.price}`).join(' · ');
+  }catch(e){
+    resultEl.textContent = 'Odds check failed: '+e.message;
+  }
+}
+
+// ============ FIREBASE CLOUD SYNC ============
+// Manual backup/restore only - no automatic real-time sync, so a bad write
+// on one device can't silently clobber another without you choosing to.
+let firebaseApp = null, firebaseAuthInst = null, firebaseDbInst = null, firebaseLoading = null;
+
+function loadScriptOnce(src){
+  return new Promise((resolve, reject)=>{
+    if(document.querySelector(`script[src="${src}"]`)){ resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = ()=>resolve(); s.onerror = ()=>reject(new Error('Failed to load '+src));
+    document.head.appendChild(s);
+  });
+}
+async function ensureFirebaseSdkLoaded(){
+  if(window.firebase && window.firebase.apps){ return; }
+  if(firebaseLoading) return firebaseLoading;
+  const v = '10.13.2';
+  firebaseLoading = (async ()=>{
+    await loadScriptOnce(`https://www.gstatic.com/firebasejs/${v}/firebase-app-compat.js`);
+    await loadScriptOnce(`https://www.gstatic.com/firebasejs/${v}/firebase-auth-compat.js`);
+    await loadScriptOnce(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore-compat.js`);
+  })();
+  return firebaseLoading;
+}
+async function initFirebaseIfConfigured(){
+  if(!settings.firebaseConfig) { updateFirebaseStatusUI('Not configured.'); return false; }
+  try{
+    await ensureFirebaseSdkLoaded();
+    const config = JSON.parse(settings.firebaseConfig);
+    firebaseApp = window.firebase.apps.length ? window.firebase.app() : window.firebase.initializeApp(config);
+    firebaseAuthInst = window.firebase.auth();
+    firebaseDbInst = window.firebase.firestore();
+    firebaseAuthInst.onAuthStateChanged(user=>{
+      document.getElementById('firebase-auth-section').style.display = 'block';
+      updateFirebaseStatusUI(user ? `Signed in as ${user.email}` : 'Configured — not signed in.');
+    });
+    return true;
+  }catch(e){
+    updateFirebaseStatusUI('Config error: '+e.message);
+    return false;
+  }
+}
+function updateFirebaseStatusUI(text){
+  const el = document.getElementById('firebase-status');
+  if(el) el.textContent = text;
+}
+function saveFirebaseConfig(){
+  const raw = document.getElementById('s-firebaseConfig').value.trim();
+  if(!raw){ toast('Paste a Firebase config first'); return; }
+  try{ JSON.parse(raw); }catch(e){ toast('That doesn\'t look like valid JSON'); return; }
+  settings.firebaseConfig = raw;
+  persist();
+  toast('Firebase config saved');
+  initFirebaseIfConfigured();
+}
+async function signInGoogleFirebase(){
+  if(!firebaseAuthInst){ toast('Save your Firebase config first'); return; }
+  try{
+    const provider = new window.firebase.auth.GoogleAuthProvider();
+    const result = await firebaseAuthInst.signInWithPopup(provider);
+    toast(`Signed in as ${result.user.email}`);
+  }catch(e){
+    if(e.code==='auth/popup-blocked'){
+      updateFirebaseStatusUI('Popup blocked — open Surveyor in a regular Chrome tab (not the installed app) and try again.');
+    } else if(e.code==='auth/cancelled-popup-request' || e.code==='auth/popup-closed-by-user'){
+      // user closed it or a second click double-fired - not a real error, stay quiet
+    } else if(e.code==='auth/unauthorized-domain'){
+      updateFirebaseStatusUI('This domain isn\'t in Firebase\'s Authorized Domains list yet — add it under Authentication > Settings.');
+    } else {
+      toast('Sign in failed: '+e.message);
+    }
+  }
+}
+async function signOutFirebase(){
+  if(!firebaseAuthInst) return;
+  await firebaseAuthInst.signOut();
+  toast('Signed out');
+}
+async function pushToCloud(){
+  const statusEl = document.getElementById('firebase-sync-status');
+  if(!firebaseAuthInst || !firebaseAuthInst.currentUser){ toast('Sign in first'); return; }
+  statusEl.textContent = 'Backing up…';
+  try{
+    const uid = firebaseAuthInst.currentUser.uid;
+    const payload = { fixtures, patterns, settings, prefs, reviewNotes, aiQueryLog, lgaHistory, settingsHistory, syncedAt: new Date().toISOString() };
+    await firebaseDbInst.collection('surveyor_users').doc(uid).set(payload);
+    statusEl.textContent = 'Backed up to cloud just now.';
+  }catch(e){
+    statusEl.textContent = 'Backup failed: '+e.message;
+  }
+}
+async function pullFromCloud(){
+  const statusEl = document.getElementById('firebase-sync-status');
+  if(!firebaseAuthInst || !firebaseAuthInst.currentUser){ toast('Sign in first'); return; }
+  statusEl.textContent = 'Restoring…';
+  try{
+    const uid = firebaseAuthInst.currentUser.uid;
+    const doc = await firebaseDbInst.collection('surveyor_users').doc(uid).get();
+    if(!doc.exists){ statusEl.textContent = 'No cloud backup found for this account yet.'; return; }
+    const data = doc.data();
+    if(data.fixtures) fixtures = data.fixtures;
+    if(data.patterns) patterns = data.patterns;
+    if(data.settings) settings = {...DEFAULT_SETTINGS, ...data.settings};
+    if(data.prefs) prefs = data.prefs;
+    if(data.reviewNotes) reviewNotes = data.reviewNotes;
+    if(data.aiQueryLog) aiQueryLog = data.aiQueryLog;
+    if(data.lgaHistory) lgaHistory = data.lgaHistory;
+    if(data.settingsHistory) settingsHistory = data.settingsHistory;
+    persist(); loadSettingsUI(); applyPrefsUI(); renderLog(); renderReports(); renderPatterns(); refreshMemory();
+    statusEl.textContent = `Restored from cloud (synced ${data.syncedAt ? new Date(data.syncedAt).toLocaleString() : 'previously'}).`;
+  }catch(e){
+    statusEl.textContent = 'Restore failed: '+e.message;
+  }
+}
+
+// ============ PATTERNS ============
+function patternStatus(sample){
+  if(sample>=100) return {status:'Validated', cls:'validated'};
+  if(sample>=50) return {status:'Provisional', cls:'provisional'};
+  if(sample>=20) return {status:'Testing', cls:'testing'};
+  return {status:'Observed', cls:'observed'};
+}
+function addPattern(){
+  const league=str('p-league'), obs=str('p-obs'), notes=str('p-notes'), sample=num('p-sample');
+  if(!obs){ toast('Observation required'); return; }
+  patterns.unshift({id:'pt_'+Date.now(), league, obs, sample, notes, createdAt:Date.now()});
+  persist();
+  ['p-league','p-obs','p-sample','p-notes'].forEach(id=>document.getElementById(id).value='');
+  renderPatterns(); toast('Pattern logged');
+}
+function incrementSample(id){ const p=patterns.find(x=>x.id===id); if(!p) return; p.sample++; persist(); renderPatterns(); }
+function deletePattern(id){ patterns = patterns.filter(x=>x.id!==id); persist(); renderPatterns(); }
+function renderPatterns(){
+  const list = document.getElementById('pattern-list');
+  if(patterns.length===0){ list.innerHTML = `<div class="card"><div class="empty">Registry empty. Log a recurring observation above.</div></div>`; return; }
+  list.innerHTML = patterns.map(p=>{
+    const s = patternStatus(p.sample);
+    return `<div class="card">
+      <div class="row-between"><span class="badge ${s.cls}">${s.status}</span>
+      <button class="secondary small" onclick="deletePattern('${p.id}')">Delete</button></div>
+      <div style="margin-top:10px;font-size:14px;">${p.obs}</div>
+      <div class="meta result-sub" style="margin-top:4px;">${p.league||'Unspecified'} · ${p.sample} matches${p.notes?' · '+p.notes:''}</div>
+      <button class="secondary small" style="margin-top:8px;" onclick="incrementSample('${p.id}')">+1 Match Observed</button>
+    </div>`;
+  }).join('');
+}
+
+// ============ SETTINGS / PREFS ============
+function loadSettingsUI(){
+  refreshThresholdBadges();
+  document.getElementById('s-over15Support').value = settings.over15Support;
+  document.getElementById('s-over15Oppose').value = settings.over15Oppose;
+  document.getElementById('s-bttsSupport').value = settings.bttsSupport;
+  document.getElementById('s-bttsOppose').value = settings.bttsOppose;
+  document.getElementById('s-scoredRateSupport').value = settings.scoredRateSupport;
+  document.getElementById('s-scoredRateOppose').value = settings.scoredRateOppose;
+  document.getElementById('s-lgaSupport').value = settings.lgaSupport;
+  document.getElementById('s-lgaOppose').value = settings.lgaOppose;
+  document.getElementById('s-winRateGap').value = settings.winRateGap;
+  document.getElementById('s-minSampleSize').value = settings.minSampleSize;
+  document.getElementById('s-geminiKey').value = settings.geminiApiKey || '';
+  document.getElementById('s-geminiModel').value = settings.geminiModel || DEFAULT_SETTINGS.geminiModel;
+  document.getElementById('s-maxAiPicks').value = settings.maxAiPicks;
+  document.getElementById('s-maxStakePerFixture').value = settings.maxStakePerFixture;
+  document.getElementById('s-weeklyStakeLimit').value = settings.weeklyStakeLimit;
+  document.getElementById('s-oddsApiKey').value = settings.oddsApiKey || '';
+  document.getElementById('s-firebaseConfig').value = settings.firebaseConfig || '';
+}
+function logSettingsChanges(newFields){
+  const ts = Date.now();
+  Object.keys(newFields).forEach(key=>{
+    const oldVal = settings[key];
+    const newVal = newFields[key];
+    if(oldVal !== newVal){
+      settingsHistory.unshift({ field:key, oldValue:oldVal, newValue:newVal, changedAt:ts });
+    }
+  });
+  settingsHistory = settingsHistory.slice(0,200);
+}
+function saveSettings(){
+  const fields = {
+    over15Support:parseFloat(document.getElementById('s-over15Support').value),
+    over15Oppose:parseFloat(document.getElementById('s-over15Oppose').value),
+    bttsSupport:parseFloat(document.getElementById('s-bttsSupport').value),
+    bttsOppose:parseFloat(document.getElementById('s-bttsOppose').value),
+    scoredRateSupport:parseFloat(document.getElementById('s-scoredRateSupport').value),
+    scoredRateOppose:parseFloat(document.getElementById('s-scoredRateOppose').value),
+    lgaSupport:parseFloat(document.getElementById('s-lgaSupport').value),
+    lgaOppose:parseFloat(document.getElementById('s-lgaOppose').value),
+    winRateGap:parseFloat(document.getElementById('s-winRateGap').value),
+    minSampleSize:parseInt(document.getElementById('s-minSampleSize').value) || DEFAULT_SETTINGS.minSampleSize
+  };
+  logSettingsChanges(fields);
+  Object.assign(settings, fields);
+  persist(); toast('Thresholds saved'); renderSettingsHistory();
+}
+function resetSettings(){
+  const thresholdKeys = ['over15Support','over15Oppose','bttsSupport','bttsOppose','scoredRateSupport','scoredRateOppose','lgaSupport','lgaOppose','winRateGap','minSampleSize'];
+  const fields = {};
+  thresholdKeys.forEach(k=>{ fields[k] = DEFAULT_SETTINGS[k]; });
+  logSettingsChanges(fields);
+  Object.assign(settings, fields);
+  loadSettingsUI(); persist(); toast('Thresholds reset to defaults'); renderSettingsHistory();
+}
+function renderSettingsHistory(){
+  const el = document.getElementById('settings-history-list');
+  if(!el) return;
+  if(!settingsHistory.length){ el.innerHTML = `<div class="result-sub">No changes yet.</div>`; return; }
+  el.innerHTML = settingsHistory.slice(0,15).map(h=>`
+    <div style="padding:7px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:12.5px;">${escapeHtml(h.field)}: ${h.oldValue} → ${h.newValue}</div>
+      <div class="result-sub" style="margin-top:2px;">${new Date(h.changedAt).toLocaleString()}</div>
+    </div>`).join('');
+}
+function saveAiSettings(){
+  settings.geminiApiKey = document.getElementById('s-geminiKey').value.trim();
+  settings.geminiModel = document.getElementById('s-geminiModel').value.trim() || DEFAULT_SETTINGS.geminiModel;
+  persist(); toast('AI settings saved');
+}
+function saveStakingSettings(){
+  settings.maxAiPicks = Math.max(1, num('s-maxAiPicks') || DEFAULT_SETTINGS.maxAiPicks);
+  settings.maxStakePerFixture = Math.max(0, num('s-maxStakePerFixture'));
+  settings.weeklyStakeLimit = Math.max(0, num('s-weeklyStakeLimit'));
+  persist(); loadSettingsUI(); renderBetScreen(); toast('Staking settings saved');
+}
+function saveOddsSettings(){
+  settings.oddsApiKey = document.getElementById('s-oddsApiKey').value.trim();
+  persist(); toast('Odds API key saved');
+}
+function clearAiSettings(){
+  settings.geminiApiKey = '';
+  document.getElementById('s-geminiKey').value = '';
+  persist(); toast('API key cleared');
+}
+
+function applyPrefsUI(){
+  document.documentElement.dataset.theme = prefs.theme;
+  document.getElementById('theme-toggle').classList.toggle('on', prefs.theme==='light');
+  document.getElementById('expand-toggle').classList.toggle('on', prefs.expandReasoning);
+  document.getElementById('confirm-toggle').classList.toggle('on', prefs.confirmDiscard);
+}
+function toggleTheme(){
+  prefs.theme = prefs.theme==='dark' ? 'light' : 'dark';
+  persist(); applyPrefsUI();
+}
+function togglePref(key){
+  prefs[key] = !prefs[key];
+  persist(); applyPrefsUI();
+}
+
+// ============ DATA IO ============
+function csvEscape(val){
+  const s = String(val ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+}
+function exportReportsCSV(){
+  if(fixtures.length===0){ toast('No fixtures logged yet'); return; }
+  const headers = [
+    'Date','Time','Country','League','Home','Away',
+    'Goal Environment','Directional Lean','Confidence','Signal Agreement',
+    'Primary Market','Secondary Market',
+    'Home Score','Away Score','Primary Hit','Secondary Hit','Lean Hit'
+  ];
+  const rows = [...fixtures]
+    .sort((a,b)=>(a.date||'').localeCompare(b.date||'') || (a.time||'').localeCompare(b.time||''))
+    .map(fx=>{
+      const r = fx.result || {};
+      return [
+        fx.date||'', fx.time||'', fx.country||'', fx.league||'', fx.home||'', fx.away||'',
+        fx.goalEnv||'', fx.leanLabel||'', fx.confidence||'', fx.conflict ? 'Conflicting' : 'Aligned',
+        fx.primary||'', fx.secondary||'',
+        r.entered ? r.homeScore : '', r.entered ? r.awayScore : '',
+        r.entered ? (r.primaryHit ? 'Hit' : 'Miss') : '',
+        r.entered ? (r.secondaryHit===null ? '' : (r.secondaryHit ? 'Hit' : 'Miss')) : '',
+        r.entered ? (r.leanHit===null ? '' : (r.leanHit ? 'Hit' : 'Miss')) : ''
+      ].map(csvEscape).join(',');
+    });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `surveyor-reports-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV exported');
+}
+function exportData(){
+  const payload = { fixtures, patterns, settings, prefs, reviewNotes, aiQueryLog, lgaHistory, settingsHistory, exportedAt:new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=`surveyor-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+function importData(event){
+  const file = event.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const data = JSON.parse(e.target.result);
+      if(data.fixtures) fixtures=data.fixtures;
+      if(data.patterns) patterns=data.patterns;
+      if(data.settings) settings={...DEFAULT_SETTINGS, ...data.settings};
+      if(data.prefs) prefs=data.prefs;
+      if(data.reviewNotes) reviewNotes=data.reviewNotes;
+      if(data.aiQueryLog) aiQueryLog=data.aiQueryLog;
+      if(data.lgaHistory) lgaHistory=data.lgaHistory;
+      if(data.settingsHistory) settingsHistory=data.settingsHistory;
+      persist(); loadSettingsUI(); applyPrefsUI(); renderLog(); renderReports(); renderPatterns(); refreshMemory();
+      toast('Data imported');
+    }catch(err){ toast('Invalid file'); }
+  };
+  reader.readAsText(file); event.target.value='';
+}
+function confirmClearAll(){
+  showConfirm('Clear all data?', 'Deletes every fixture and pattern permanently.', 'Delete', clearAllConfirmed);
+}
+let pendingConfirmAction = null;
+function showConfirm(title, message, yesLabel, callback){
+  pendingConfirmAction = callback;
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-message').textContent = message;
+  const yesBtn = document.getElementById('confirm-yes-btn');
+  yesBtn.textContent = yesLabel;
+  yesBtn.className = yesLabel.toLowerCase().includes('delete') || yesLabel.toLowerCase().includes('discard') ? 'danger secondary' : 'secondary';
+  document.getElementById('confirm-modal-overlay').classList.add('show');
+}
+function confirmYesAction(){
+  if(pendingConfirmAction) pendingConfirmAction();
+  closeConfirmModal();
+}
+function closeConfirmModal(){
+  document.getElementById('confirm-modal-overlay').classList.remove('show');
+  pendingConfirmAction = null;
+}
+function clearAllConfirmed(){
+  fixtures=[]; patterns=[]; settings={...DEFAULT_SETTINGS}; reviewNotes=[]; aiQueryLog=[]; lgaHistory=[]; settingsHistory=[];
+  persist(); loadSettingsUI(); renderLog(); renderReports(); renderPatterns(); refreshMemory();
+  toast('All data cleared');
+}
+
+// ============ MEMORY: AUTOCOMPLETE, RECENT CHIPS, DATE SHORTCUTS ============
+function dateLabel(fx){
+  return fx.time ? `${fx.date||'—'} · ${fx.time}` : (fx.date||'—');
+}
+function leagueLabel(fx){
+  if(fx.country && fx.league) return `${fx.country} — ${fx.league}`;
+  return fx.country || fx.league || 'Unspecified';
+}
+function setDatalist(id, values){
+  document.getElementById(id).innerHTML = values.map(v=>`<option value="${String(v).replace(/"/g,'&quot;')}">`).join('');
+}
+function refreshMemory(){
+  const countries = new Set(), leagues = new Set(), teams = new Set();
+  fixtures.forEach(fx=>{
+    if(fx.country) countries.add(fx.country);
+    if(fx.league) leagues.add(fx.league);
+    if(fx.home) teams.add(fx.home);
+    if(fx.away) teams.add(fx.away);
+  });
+  setDatalist('country-list', [...countries]);
+  setDatalist('league-list', [...leagues]);
+  setDatalist('home-team-list', [...teams]);
+  setDatalist('away-team-list', [...teams]);
+  renderRecentChips();
+}
+function renderRecentChips(){
+  const container = document.getElementById('recent-league-chips');
+  if(!container) return;
+  const seen = new Set(), pairs = [];
+  for(const fx of fixtures){
+    if(!fx.country && !fx.league) continue;
+    const key = `${fx.country}|||${fx.league}`;
+    if(!seen.has(key)){ seen.add(key); pairs.push({country:fx.country, league:fx.league}); }
+    if(pairs.length >= 6) break;
+  }
+  container.innerHTML = pairs.map(p=>
+    `<button type="button" class="chip" onclick="applyLeaguePair('${p.country.replace(/'/g,"\\'")}','${p.league.replace(/'/g,"\\'")}')">${leagueLabel(p)}</button>`
+  ).join('');
+}
+function applyLeaguePair(country, league){
+  document.getElementById('f-country').value = country;
+  document.getElementById('f-league').value = league;
+}
+function setDateShortcut(daysAhead){
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  document.getElementById('f-date').value = d.toISOString().slice(0,10);
+}
+loadSettingsUI();
+applyPrefsUI();
+showStep(0);
+refreshMemory();
+if(settings.firebaseConfig) initFirebaseIfConfigured();
+
+setTimeout(()=>{
+  const splash = document.getElementById('splash-screen');
+  if(splash) splash.classList.add('hide');
+}, 1000);
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
